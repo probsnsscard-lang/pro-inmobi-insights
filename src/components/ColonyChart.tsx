@@ -1,0 +1,75 @@
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+
+interface ColonyChartProps {
+  data: { name: string; count: number; percentage: number }[];
+}
+
+const COLORS = [
+  'hsl(213, 56%, 24%)',
+  'hsl(160, 84%, 39%)',
+  'hsl(40, 90%, 55%)',
+  'hsl(213, 40%, 50%)',
+  'hsl(160, 60%, 50%)',
+  'hsl(280, 50%, 50%)',
+  'hsl(20, 80%, 55%)',
+];
+
+const ColonyChart = ({ data }: ColonyChartProps) => {
+  if (data.length === 0) return null;
+
+  return (
+    <div className="bg-card rounded-xl card-shadow p-5">
+      <h3 className="font-display font-semibold text-foreground mb-4">
+        Distribución por Colonias
+      </h3>
+      <div className="flex flex-col md:flex-row items-center gap-6">
+        <div className="w-full md:w-1/2 h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={data}
+                dataKey="count"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                innerRadius={50}
+                outerRadius={90}
+                paddingAngle={3}
+                stroke="none"
+              >
+                {data.map((_, i) => (
+                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip
+                formatter={(value: number, name: string) => [`${value} props`, name]}
+                contentStyle={{
+                  borderRadius: '8px',
+                  border: 'none',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                  fontSize: '12px',
+                }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="w-full md:w-1/2 space-y-2">
+          {data.map((item, i) => (
+            <div key={item.name} className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-3 h-3 rounded-sm shrink-0"
+                  style={{ backgroundColor: COLORS[i % COLORS.length] }}
+                />
+                <span className="text-foreground truncate">{item.name}</span>
+              </div>
+              <span className="text-muted-foreground font-medium">{item.percentage}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ColonyChart;
