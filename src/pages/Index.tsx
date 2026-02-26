@@ -22,11 +22,20 @@ const Index = () => {
     }, 800);
   };
 
+  const handleAIResult = (aiResult: AnalysisResult) => {
+    setResult(aiResult);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-        <InputPanel onAnalyze={handleAnalyze} isProcessing={isProcessing} />
+        <InputPanel
+          onAnalyze={handleAnalyze}
+          onAIResult={handleAIResult}
+          isProcessing={isProcessing}
+          setIsProcessing={setIsProcessing}
+        />
 
         {result && (
           <>
