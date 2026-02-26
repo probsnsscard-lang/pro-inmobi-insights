@@ -1,18 +1,23 @@
 import { useState } from 'react';
-import { Link, Zap, FileJson, Play } from 'lucide-react';
+import { Link, Zap, FileJson, Play, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { PropertyData, parseJsonImport, getDemoData } from '@/lib/calculationEngine';
+import { PropertyData, getDemoData, AnalysisResult } from '@/lib/calculationEngine';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface InputPanelProps {
   onAnalyze: (data: PropertyData[]) => void;
+  onAIResult?: (result: AnalysisResult) => void;
   isProcessing: boolean;
+  setIsProcessing: (v: boolean) => void;
 }
 
-const InputPanel = ({ onAnalyze, isProcessing }: InputPanelProps) => {
+const InputPanel = ({ onAnalyze, onAIResult, isProcessing, setIsProcessing }: InputPanelProps) => {
   const [links, setLinks] = useState(['', '', '']);
   const [jsonInput, setJsonInput] = useState('');
+  const [jsonError, setJsonError] = useState<string | null>(null);
 
   const handleLinkChange = (index: number, value: string) => {
     const newLinks = [...links];
@@ -20,17 +25,85 @@ const InputPanel = ({ onAnalyze, isProcessing }: InputPanelProps) => {
     setLinks(newLinks);
   };
 
-  const handleProcess = () => {
-    // Try JSON import first
-    if (jsonInput.trim()) {
-      const parsed = parseJsonImport(jsonInput);
-      if (parsed.length > 0) {
-        onAnalyze(parsed);
+  const validateJson = (input: string): any[] | null => {
+    if (!input.trim()) return null;
+    try {
+      const parsed = JSON.parse(input);
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        setJsonError('El JSON debe ser un array con al menos una propiedad.');
+        return null;
+      }
+      // Validate required fields
+      for (const item of parsed) {
+        if (!item.price && !item.precio) {
+          setJsonError('Cada propiedad debe tener un campo "price" o "precio".');
+          return null;
+        }
+      }
+      setJsonError(null);
+      return parsed;
+    } catch {
+      setJsonError('JSON inválido. Verifica la sintaxis.');
+      return null;
+    }
+  };
+
+  const handleProcess = async () => {
+    const trimmed = jsonInput.trim();
+
+    // If no JSON, use demo data locally (no API call)
+    if (!trimmed) {
+      onAnalyze(getDemoData());
+      return;
+    }
+
+    // Validate JSON before sending
+    const properties = validateJson(trimmed);
+    if (!properties) return;
+
+    // Send to Gemini via edge function
+    setIsProcessing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-properties', {
+        body: { properties },
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Error al invocar la función');
+      }
+
+      if (data?.error) {
+        toast.error(data.error);
         return;
       }
+
+      // Validate the AI response has the expected structure
+      if (data && data.newAvgPrice !== undefined && data.colonyDistribution) {
+        onAIResult?.(data as AnalysisResult);
+        toast.success('Análisis completado con Gemini IA');
+      } else {
+        toast.error('La respuesta de IA no tiene el formato esperado. Usando cálculo local.');
+        // Fallback to local calculation
+        const { parseJsonImport } = await import('@/lib/calculationEngine');
+        const localParsed = parseJsonImport(trimmed);
+        if (localParsed.length > 0) {
+          onAnalyze(localParsed);
+        }
+      }
+    } catch (err: any) {
+      console.error('AI analysis error:', err);
+      toast.error('Error al analizar con IA. Usando cálculo local.');
+      // Fallback to local
+      const { parseJsonImport } = await import('@/lib/calculationEngine');
+      const localParsed = parseJsonImport(trimmed);
+      if (localParsed.length > 0) {
+        onAnalyze(localParsed);
+      } else {
+        onAnalyze(getDemoData());
+      }
+    } finally {
+      setIsProcessing(false);
     }
-    // Fallback to demo data
-    onAnalyze(getDemoData());
   };
 
   const handleLoadDemo = () => {
@@ -72,9 +145,21 @@ const InputPanel = ({ onAnalyze, isProcessing }: InputPanelProps) => {
         <Textarea
           placeholder='Pegue datos JSON aquí. Formato: [{"price": 3500000, "pricePerM2": 25000, "area": 140, "colony": "Valle Real", "type": "new"}]'
           value={jsonInput}
-          onChange={(e) => setJsonInput(e.target.value)}
-          className="min-h-[100px] bg-muted/50 border-border font-mono text-xs"
+          onChange={(e) => {
+            setJsonInput(e.target.value);
+            setJsonError(null);
+          }}
+          className={`min-h-[100px] bg-muted/50 border-border font-mono text-xs ${jsonError ? 'border-destructive' : ''}`}
         />
+        {jsonError && (
+          <div className="flex items-center gap-1.5 text-xs text-destructive">
+            <AlertCircle className="w-3.5 h-3.5" />
+            {jsonError}
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground">
+          Si el campo está vacío se usarán datos demo internos (sin consumir créditos de IA).
+        </p>
       </div>
 
       <div className="flex gap-3">
@@ -84,7 +169,7 @@ const InputPanel = ({ onAnalyze, isProcessing }: InputPanelProps) => {
           className="flex-1 h-12 text-base font-display font-semibold gradient-emerald text-primary-foreground border-0 hover:opacity-90 transition-opacity"
         >
           <Play className="w-5 h-5 mr-2" />
-          {isProcessing ? 'Procesando...' : 'Procesar Análisis Masivo'}
+          {isProcessing ? 'Procesando con Gemini...' : 'Procesar Análisis Masivo'}
         </Button>
         <Button
           variant="outline"
