@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, Zap, FileJson, Play, AlertCircle } from 'lucide-react';
+import { Link, Zap, FileJson, Play, AlertCircle, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
