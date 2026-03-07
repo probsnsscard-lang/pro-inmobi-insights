@@ -60,6 +60,12 @@ const COLUMN_MAP: Record<string, string> = {
   condicion: 'type',
 };
 
+const cleanNumber = (val: any): number => {
+  if (typeof val === 'number') return val;
+  const cleaned = String(val).replace(/[^0-9.,]/g, '').replace(/,/g, '');
+  return Number(cleaned) || 0;
+};
+
 const mapRow = (row: Record<string, any>): PropertyData | null => {
   const mapped: any = {};
   for (const [key, value] of Object.entries(row)) {
@@ -68,10 +74,12 @@ const mapRow = (row: Record<string, any>): PropertyData | null => {
     if (stdKey) mapped[stdKey] = value;
   }
   if (!mapped.price) return null;
+  const price = cleanNumber(mapped.price);
+  const area = cleanNumber(mapped.area);
   return {
-    price: Number(mapped.price) || 0,
-    pricePerM2: mapped.area ? Math.round(Number(mapped.price) / Number(mapped.area)) : 0,
-    area: Number(mapped.area) || 0,
+    price,
+    pricePerM2: area ? Math.round(price / area) : 0,
+    area,
     colony: String(mapped.colony || 'Sin colonia'),
     type: String(mapped.type || 'usado').toLowerCase().includes('nuev') ? 'new' : 'used',
     source: 'excel',
