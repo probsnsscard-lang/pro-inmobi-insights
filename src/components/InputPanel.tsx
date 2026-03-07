@@ -14,25 +14,56 @@ interface InputPanelProps {
   setIsProcessing: (v: boolean) => void;
 }
 
-// Column name mapping: common Spanish variants → standard keys
+// Column name mapping: multi-portal support (Inmuebles24, Vivanuncios, MercadoLibre, Lamudi) + generic Spanish
 const COLUMN_MAP: Record<string, string> = {
+  // --- PRICE ---
   precio: 'price',
   price: 'price',
   'precio total': 'price',
+  // Inmuebles24 / Vivanuncios scraper class
+  'postingprices-module__price': 'price',
+  // MercadoLibre scraper class
+  'andes-money-amount__fraction': 'price',
+  // Lamudi scraper class
+  'snippet__content__price': 'price',
+
+  // --- AREA ---
   metros: 'area',
   area: 'area',
   'metros de construcción': 'area',
   'metros de construccion': 'area',
   'm2': 'area',
   superficie: 'area',
+  // Inmuebles24 / Vivanuncios
+  'postingmainfeatures-module__posting-main-features-span': 'area',
+  // MercadoLibre
+  'poly-attributes_list__item 3': 'area',
+  // Lamudi
+  'property__number': 'area',
+
+  // --- COLONY ---
   colonia: 'colony',
   colony: 'colony',
   zona: 'colony',
+  // Inmuebles24 / Vivanuncios
+  'postinglocations-module__location-text': 'colony',
+  // MercadoLibre
+  'poly-component__location': 'colony',
+  // Lamudi
+  'snippet__content__location': 'colony',
+
+  // --- TYPE ---
   estado: 'type',
   type: 'type',
   tipo: 'type',
   condición: 'type',
   condicion: 'type',
+};
+
+const cleanNumber = (val: any): number => {
+  if (typeof val === 'number') return val;
+  const cleaned = String(val).replace(/[^0-9.,]/g, '').replace(/,/g, '');
+  return Number(cleaned) || 0;
 };
 
 const mapRow = (row: Record<string, any>): PropertyData | null => {
@@ -43,10 +74,12 @@ const mapRow = (row: Record<string, any>): PropertyData | null => {
     if (stdKey) mapped[stdKey] = value;
   }
   if (!mapped.price) return null;
+  const price = cleanNumber(mapped.price);
+  const area = cleanNumber(mapped.area);
   return {
-    price: Number(mapped.price) || 0,
-    pricePerM2: mapped.area ? Math.round(Number(mapped.price) / Number(mapped.area)) : 0,
-    area: Number(mapped.area) || 0,
+    price,
+    pricePerM2: area ? Math.round(price / area) : 0,
+    area,
     colony: String(mapped.colony || 'Sin colonia'),
     type: String(mapped.type || 'usado').toLowerCase().includes('nuev') ? 'new' : 'used',
     source: 'excel',
