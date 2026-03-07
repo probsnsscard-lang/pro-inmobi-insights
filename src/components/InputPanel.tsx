@@ -18,6 +18,7 @@ const InputPanel = ({ onAnalyze, onAIResult, isProcessing, setIsProcessing }: In
   const [links, setLinks] = useState(['', '', '']);
   const [jsonInput, setJsonInput] = useState('');
   const [jsonError, setJsonError] = useState<string | null>(null);
+  const [showGuide, setShowGuide] = useState(false);
 
   const handleLinkChange = (index: number, value: string) => {
     const newLinks = [...links];
