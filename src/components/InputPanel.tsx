@@ -14,20 +14,45 @@ interface InputPanelProps {
   setIsProcessing: (v: boolean) => void;
 }
 
-// Column name mapping: common Spanish variants → standard keys
+// Column name mapping: multi-portal support (Inmuebles24, Vivanuncios, MercadoLibre, Lamudi) + generic Spanish
 const COLUMN_MAP: Record<string, string> = {
+  // --- PRICE ---
   precio: 'price',
   price: 'price',
   'precio total': 'price',
+  // Inmuebles24 / Vivanuncios scraper class
+  'postingprices-module__price': 'price',
+  // MercadoLibre scraper class
+  'andes-money-amount__fraction': 'price',
+  // Lamudi scraper class
+  'snippet__content__price': 'price',
+
+  // --- AREA ---
   metros: 'area',
   area: 'area',
   'metros de construcción': 'area',
   'metros de construccion': 'area',
   'm2': 'area',
   superficie: 'area',
+  // Inmuebles24 / Vivanuncios
+  'postingmainfeatures-module__posting-main-features-span': 'area',
+  // MercadoLibre
+  'poly-attributes_list__item 3': 'area',
+  // Lamudi
+  'property__number': 'area',
+
+  // --- COLONY ---
   colonia: 'colony',
   colony: 'colony',
   zona: 'colony',
+  // Inmuebles24 / Vivanuncios
+  'postinglocations-module__location-text': 'colony',
+  // MercadoLibre
+  'poly-component__location': 'colony',
+  // Lamudi
+  'snippet__content__location': 'colony',
+
+  // --- TYPE ---
   estado: 'type',
   type: 'type',
   tipo: 'type',
