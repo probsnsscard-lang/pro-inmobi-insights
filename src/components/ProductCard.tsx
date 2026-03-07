@@ -35,7 +35,7 @@ const ProductCard = ({
           )}
           <h3 className="font-display font-bold text-primary-foreground">{title}</h3>
         </div>
-        <span className="text-xs text-primary-foreground/70 font-medium">
+        <span className="text-sm text-primary-foreground/80 font-bold">
           {count} propiedades
         </span>
       </div>
@@ -46,16 +46,16 @@ const ProductCard = ({
           <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-1">
             Precio Promedio
           </p>
-          <p className="text-3xl font-display font-bold text-foreground">
+          <p className="text-4xl font-display font-extrabold text-foreground">
             {fmt(avgPrice)}
           </p>
         </div>
 
-        {/* Price per m2 */}
-        <div className="text-center bg-muted/50 rounded-lg py-2">
-          <p className="text-xs text-muted-foreground">Precio por m²</p>
-          <p className="text-lg font-display font-semibold text-foreground">
-            {fmt(avgPricePerM2)} /m²
+        {/* Price per m2 — white bg, no blue line, bold text */}
+        <div className="text-center bg-card rounded-lg py-3 border border-border">
+          <p className="text-xs text-muted-foreground font-medium">Precio por m²</p>
+          <p className="text-2xl font-display font-extrabold text-foreground">
+            {fmt(avgPricePerM2)} <span className="text-base font-bold text-muted-foreground">/m²</span>
           </p>
         </div>
 
@@ -67,11 +67,11 @@ const ProductCard = ({
           <div className="flex gap-2">
             <div className="flex-1 bg-primary/10 rounded-lg p-3 text-center">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">60% Construcción</p>
-              <p className="text-sm font-display font-bold text-primary">{fmt(construction60)}</p>
+              <p className="text-base font-display font-extrabold text-primary">{fmt(construction60)}</p>
             </div>
             <div className="flex-1 bg-secondary/10 rounded-lg p-3 text-center">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">40% Terreno</p>
-              <p className="text-sm font-display font-bold text-secondary">{fmt(terrain40)}</p>
+              <p className="text-base font-display font-extrabold text-secondary">{fmt(terrain40)}</p>
             </div>
           </div>
         </div>

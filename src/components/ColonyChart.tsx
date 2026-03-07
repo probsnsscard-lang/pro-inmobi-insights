@@ -4,14 +4,16 @@ interface ColonyChartProps {
   data: { name: string; count: number; percentage: number }[];
 }
 
+// Pastel palette with clear contrast
 const COLORS = [
-  'hsl(213, 56%, 24%)',
-  'hsl(160, 84%, 39%)',
-  'hsl(40, 90%, 55%)',
-  'hsl(213, 40%, 50%)',
-  'hsl(160, 60%, 50%)',
-  'hsl(280, 50%, 50%)',
-  'hsl(20, 80%, 55%)',
+  'hsl(200, 70%, 72%)',
+  'hsl(160, 55%, 68%)',
+  'hsl(40, 80%, 72%)',
+  'hsl(280, 45%, 75%)',
+  'hsl(20, 70%, 74%)',
+  'hsl(340, 55%, 75%)',
+  'hsl(120, 40%, 70%)',
+  'hsl(220, 50%, 78%)',
 ];
 
 const ColonyChart = ({ data }: ColonyChartProps) => {
@@ -34,8 +36,9 @@ const ColonyChart = ({ data }: ColonyChartProps) => {
                 cy="50%"
                 innerRadius={50}
                 outerRadius={90}
-                paddingAngle={3}
-                stroke="none"
+                paddingAngle={2}
+                stroke="hsl(0 0% 100%)"
+                strokeWidth={2}
               >
                 {data.map((_, i) => (
                   <Cell key={i} fill={COLORS[i % COLORS.length]} />
@@ -63,7 +66,7 @@ const ColonyChart = ({ data }: ColonyChartProps) => {
                 />
                 <span className="text-foreground truncate">{item.name}</span>
               </div>
-              <span className="text-muted-foreground font-medium">{item.percentage}%</span>
+              <span className="text-muted-foreground font-bold">{item.percentage}%</span>
             </div>
           ))}
         </div>
