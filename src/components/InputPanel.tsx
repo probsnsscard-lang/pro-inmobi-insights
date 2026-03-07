@@ -1,11 +1,11 @@
-import { useState } from 'react';
-import { Link, Zap, FileJson, Play, AlertCircle, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Zap, FileJson, Play, AlertCircle, HelpCircle, ChevronDown, ChevronUp, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
 import { PropertyData, getDemoData, AnalysisResult } from '@/lib/calculationEngine';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import * as XLSX from 'xlsx';
 
 interface InputPanelProps {
   onAnalyze: (data: PropertyData[]) => void;
@@ -14,16 +14,80 @@ interface InputPanelProps {
   setIsProcessing: (v: boolean) => void;
 }
 
+// Column name mapping: common Spanish variants → standard keys
+const COLUMN_MAP: Record<string, string> = {
+  precio: 'price',
+  price: 'price',
+  'precio total': 'price',
+  metros: 'area',
+  area: 'area',
+  'metros de construcción': 'area',
+  'metros de construccion': 'area',
+  'm2': 'area',
+  superficie: 'area',
+  colonia: 'colony',
+  colony: 'colony',
+  zona: 'colony',
+  estado: 'type',
+  type: 'type',
+  tipo: 'type',
+  condición: 'type',
+  condicion: 'type',
+};
+
+const mapRow = (row: Record<string, any>): PropertyData | null => {
+  const mapped: any = {};
+  for (const [key, value] of Object.entries(row)) {
+    const normalized = key.trim().toLowerCase();
+    const stdKey = COLUMN_MAP[normalized];
+    if (stdKey) mapped[stdKey] = value;
+  }
+  if (!mapped.price) return null;
+  return {
+    price: Number(mapped.price) || 0,
+    pricePerM2: mapped.area ? Math.round(Number(mapped.price) / Number(mapped.area)) : 0,
+    area: Number(mapped.area) || 0,
+    colony: String(mapped.colony || 'Sin colonia'),
+    type: String(mapped.type || 'usado').toLowerCase().includes('nuev') ? 'new' : 'used',
+    source: 'excel',
+  };
+};
+
 const InputPanel = ({ onAnalyze, onAIResult, isProcessing, setIsProcessing }: InputPanelProps) => {
-  const [links, setLinks] = useState(['', '', '']);
   const [jsonInput, setJsonInput] = useState('');
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [showGuide, setShowGuide] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const handleLinkChange = (index: number, value: string) => {
-    const newLinks = [...links];
-    newLinks[index] = value;
-    setLinks(newLinks);
+  const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const data = new Uint8Array(evt.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows: Record<string, any>[] = XLSX.utils.sheet_to_json(sheet);
+
+        const properties = rows.map(mapRow).filter(Boolean) as PropertyData[];
+        if (properties.length === 0) {
+          toast.error('No se encontraron propiedades válidas. Verifica las columnas del Excel.');
+          return;
+        }
+
+        const jsonStr = JSON.stringify(properties, null, 2);
+        setJsonInput(jsonStr);
+        setJsonError(null);
+        toast.success(`${properties.length} propiedades importadas del Excel`);
+      } catch {
+        toast.error('Error al leer el archivo Excel.');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    // Reset input so same file can be re-uploaded
+    e.target.value = '';
   };
 
   const validateJson = (input: string): any[] | null => {
@@ -34,7 +98,6 @@ const InputPanel = ({ onAnalyze, onAIResult, isProcessing, setIsProcessing }: In
         setJsonError('El JSON debe ser un array con al menos una propiedad.');
         return null;
       }
-      // Validate required fields
       for (const item of parsed) {
         if (!item.price && !item.precio) {
           setJsonError('Cada propiedad debe tener un campo "price" o "precio".');
@@ -52,56 +115,43 @@ const InputPanel = ({ onAnalyze, onAIResult, isProcessing, setIsProcessing }: In
   const handleProcess = async () => {
     const trimmed = jsonInput.trim();
 
-    // If no JSON, use demo data locally (no API call)
     if (!trimmed) {
       onAnalyze(getDemoData());
       return;
     }
 
-    // Validate JSON before sending
     const properties = validateJson(trimmed);
     if (!properties) return;
 
-    // Send to Gemini via edge function
     setIsProcessing(true);
     try {
       const { data, error } = await supabase.functions.invoke('analyze-properties', {
         body: { properties },
       });
 
-      if (error) {
-        throw new Error(error.message || 'Error al invocar la función');
-      }
+      if (error) throw new Error(error.message || 'Error al invocar la función');
 
       if (data?.error) {
         toast.error(data.error);
         return;
       }
 
-      // Validate the AI response has the expected structure
       if (data && data.newAvgPrice !== undefined && data.colonyDistribution) {
         onAIResult?.(data as AnalysisResult);
         toast.success('Análisis completado con Gemini IA');
       } else {
-        toast.error('La respuesta de IA no tiene el formato esperado. Usando cálculo local.');
-        // Fallback to local calculation
+        toast.error('Respuesta IA inesperada. Usando cálculo local.');
         const { parseJsonImport } = await import('@/lib/calculationEngine');
         const localParsed = parseJsonImport(trimmed);
-        if (localParsed.length > 0) {
-          onAnalyze(localParsed);
-        }
+        if (localParsed.length > 0) onAnalyze(localParsed);
       }
     } catch (err: any) {
       console.error('AI analysis error:', err);
       toast.error('Error al analizar con IA. Usando cálculo local.');
-      // Fallback to local
       const { parseJsonImport } = await import('@/lib/calculationEngine');
       const localParsed = parseJsonImport(trimmed);
-      if (localParsed.length > 0) {
-        onAnalyze(localParsed);
-      } else {
-        onAnalyze(getDemoData());
-      }
+      if (localParsed.length > 0) onAnalyze(localParsed);
+      else onAnalyze(getDemoData());
     } finally {
       setIsProcessing(false);
     }
@@ -112,7 +162,7 @@ const InputPanel = ({ onAnalyze, onAIResult, isProcessing, setIsProcessing }: In
   };
 
   return (
-    <section className="bg-card rounded-xl card-shadow p-6 space-y-5">
+    <section className="bg-card rounded-xl card-shadow p-6 space-y-4">
       <div className="flex items-center gap-2 mb-1">
         <Zap className="w-5 h-5 text-secondary" />
         <h2 className="font-display font-semibold text-foreground text-lg">
@@ -120,22 +170,30 @@ const InputPanel = ({ onAnalyze, onAIResult, isProcessing, setIsProcessing }: In
         </h2>
       </div>
 
-      <div className="space-y-3">
-        {links.map((link, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-muted shrink-0">
-              <Link className="w-4 h-4 text-muted-foreground" />
-            </div>
-            <Input
-              placeholder={`Link portal inmobiliario ${i + 1}`}
-              value={link}
-              onChange={(e) => handleLinkChange(i, e.target.value)}
-              className="bg-muted/50 border-border"
-            />
-          </div>
-        ))}
+      {/* Excel upload */}
+      <div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".xlsx,.xls,.csv"
+          className="hidden"
+          onChange={handleExcelUpload}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => fileRef.current?.click()}
+          className="w-full h-14 text-base font-display font-semibold border-2 border-dashed border-secondary/40 hover:border-secondary hover:bg-secondary/5 text-secondary transition-all"
+        >
+          <Upload className="w-5 h-5 mr-2" />
+          📂 Subir Listado Excel (.xlsx)
+        </Button>
+        <p className="text-[11px] text-muted-foreground mt-1.5">
+          Columnas aceptadas: <span className="font-mono">precio · metros · colonia · estado</span> (se mapean automáticamente)
+        </p>
       </div>
 
+      {/* JSON textarea */}
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           <FileJson className="w-4 h-4 text-secondary" />
@@ -144,13 +202,13 @@ const InputPanel = ({ onAnalyze, onAIResult, isProcessing, setIsProcessing }: In
           </label>
         </div>
         <Textarea
-          placeholder='Pegue datos JSON aquí. Formato: [{"price": 3500000, "pricePerM2": 25000, "area": 140, "colony": "Valle Real", "type": "new"}]'
+          placeholder='[{"price": 3500000, "area": 140, "colony": "Valle Real", "type": "nuevo"}]'
           value={jsonInput}
           onChange={(e) => {
             setJsonInput(e.target.value);
             setJsonError(null);
           }}
-          className={`min-h-[100px] bg-muted/50 border-border font-mono text-xs ${jsonError ? 'border-destructive' : ''}`}
+          className={`min-h-[90px] bg-muted/50 border-border font-mono text-xs ${jsonError ? 'border-destructive' : ''}`}
         />
         {jsonError && (
           <div className="flex items-center gap-1.5 text-xs text-destructive">
@@ -159,24 +217,23 @@ const InputPanel = ({ onAnalyze, onAIResult, isProcessing, setIsProcessing }: In
           </div>
         )}
         <p className="text-xs text-muted-foreground">
-          Si el campo está vacío se usarán datos demo internos (sin consumir créditos de IA).
+          Si el campo está vacío se usarán datos demo (sin consumir créditos de IA).
         </p>
 
-        {/* Guía de configuración colapsable */}
+        {/* Collapsible guide */}
         <button
           type="button"
           onClick={() => setShowGuide(!showGuide)}
           className="flex items-center gap-1.5 text-xs text-secondary hover:text-secondary/80 transition-colors font-medium"
         >
           <HelpCircle className="w-3.5 h-3.5" />
-          ¿Cómo preparar mis datos de Inmuebles24?
+          ¿Cómo preparar mis datos?
           {showGuide ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
         </button>
 
         {showGuide && (
           <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3 text-xs text-muted-foreground animate-in slide-in-from-top-2">
             <p className="font-semibold text-foreground text-sm">🛠️ Configuración del Scraper</p>
-
             <div>
               <p className="font-medium text-foreground mb-1">1. Renombrar columnas en Excel:</p>
               <ul className="list-disc list-inside space-y-0.5 ml-1">
@@ -186,17 +243,10 @@ const InputPanel = ({ onAnalyze, onAIResult, isProcessing, setIsProcessing }: In
                 <li><span className="font-mono text-secondary">Estado (Nuevo/Usado)</span> → <span className="font-mono font-semibold text-foreground">type</span></li>
               </ul>
             </div>
-
             <div>
-              <p className="font-medium text-foreground mb-1">2. Convertir a JSON:</p>
-              <p>Usa una herramienta en línea como <span className="font-semibold">"Excel to JSON"</span> o pídele a Gemini que transforme tu lista al formato requerido.</p>
+              <p className="font-medium text-foreground mb-1">2. O sube directamente:</p>
+              <p>El botón de Excel mapea automáticamente columnas en español. No necesitas renombrar si usas nombres comunes.</p>
             </div>
-
-            <div>
-              <p className="font-medium text-foreground mb-1">3. Ejecutar:</p>
-              <p>Pega el texto JSON en el campo de arriba y haz clic en <span className="font-semibold text-foreground">"Procesar Análisis Masivo"</span>.</p>
-            </div>
-
             <div className="rounded bg-muted p-2 font-mono text-[10px] leading-relaxed overflow-x-auto">
               {'[{"price": 3500000, "area": 140, "colony": "Valle Real", "type": "nuevo"}]'}
             </div>
@@ -204,6 +254,7 @@ const InputPanel = ({ onAnalyze, onAIResult, isProcessing, setIsProcessing }: In
         )}
       </div>
 
+      {/* Action buttons */}
       <div className="flex gap-3">
         <Button
           onClick={handleProcess}
