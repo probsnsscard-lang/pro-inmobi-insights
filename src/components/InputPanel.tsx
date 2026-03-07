@@ -160,6 +160,47 @@ const InputPanel = ({ onAnalyze, onAIResult, isProcessing, setIsProcessing }: In
         <p className="text-xs text-muted-foreground">
           Si el campo está vacío se usarán datos demo internos (sin consumir créditos de IA).
         </p>
+
+        {/* Guía de configuración colapsable */}
+        <button
+          type="button"
+          onClick={() => setShowGuide(!showGuide)}
+          className="flex items-center gap-1.5 text-xs text-secondary hover:text-secondary/80 transition-colors font-medium"
+        >
+          <HelpCircle className="w-3.5 h-3.5" />
+          ¿Cómo preparar mis datos de Inmuebles24?
+          {showGuide ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+        </button>
+
+        {showGuide && (
+          <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3 text-xs text-muted-foreground animate-in slide-in-from-top-2">
+            <p className="font-semibold text-foreground text-sm">🛠️ Configuración del Scraper</p>
+
+            <div>
+              <p className="font-medium text-foreground mb-1">1. Renombrar columnas en Excel:</p>
+              <ul className="list-disc list-inside space-y-0.5 ml-1">
+                <li><span className="font-mono text-secondary">Precio</span> → <span className="font-mono font-semibold text-foreground">price</span></li>
+                <li><span className="font-mono text-secondary">Metros de Construcción</span> → <span className="font-mono font-semibold text-foreground">area</span></li>
+                <li><span className="font-mono text-secondary">Colonia</span> → <span className="font-mono font-semibold text-foreground">colony</span></li>
+                <li><span className="font-mono text-secondary">Estado (Nuevo/Usado)</span> → <span className="font-mono font-semibold text-foreground">type</span></li>
+              </ul>
+            </div>
+
+            <div>
+              <p className="font-medium text-foreground mb-1">2. Convertir a JSON:</p>
+              <p>Usa una herramienta en línea como <span className="font-semibold">"Excel to JSON"</span> o pídele a Gemini que transforme tu lista al formato requerido.</p>
+            </div>
+
+            <div>
+              <p className="font-medium text-foreground mb-1">3. Ejecutar:</p>
+              <p>Pega el texto JSON en el campo de arriba y haz clic en <span className="font-semibold text-foreground">"Procesar Análisis Masivo"</span>.</p>
+            </div>
+
+            <div className="rounded bg-muted p-2 font-mono text-[10px] leading-relaxed overflow-x-auto">
+              {'[{"price": 3500000, "area": 140, "colony": "Valle Real", "type": "nuevo"}]'}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-3">
