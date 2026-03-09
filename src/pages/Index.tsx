@@ -68,7 +68,7 @@ const Index = () => {
                 avgPricePerM2={result.newAvgPricePerM2}
                 construction60={result.newConstruction60}
                 terrain40={result.newTerrain40}
-                count={result.newProducts.length}
+                count={result.newCount ?? result.newProducts.length}
               />
               <ProductCard
                 title="Producto Usado"
@@ -77,7 +77,7 @@ const Index = () => {
                 avgPricePerM2={result.usedAvgPricePerM2}
                 construction60={result.usedConstruction60}
                 terrain40={result.usedTerrain40}
-                count={result.usedProducts.length}
+                count={result.usedCount ?? result.usedProducts.length}
               />
             </div>
 

@@ -22,6 +22,8 @@ export interface AnalysisResult {
   insights: string[];
   totalProperties: number;
   trimmedProperties: number;
+  newCount?: number;
+  usedCount?: number;
 }
 
 function trimmedMean(values: number[]): number {
@@ -42,19 +44,18 @@ export function analyzeProperties(properties: PropertyData[]): AnalysisResult {
   const usedAvgPrice = trimmedMean(usedProducts.map(p => p.price));
   const usedAvgPricePerM2 = trimmedMean(usedProducts.map(p => p.pricePerM2));
 
-  // Colony distribution
   const colonyCounts: Record<string, number> = {};
   properties.forEach(p => {
     colonyCounts[p.colony] = (colonyCounts[p.colony] || 0) + 1;
   });
+
   const total = properties.length || 1;
   const colonyDistribution = Object.entries(colonyCounts)
     .map(([name, count]) => ({ name, count, percentage: Math.round((count / total) * 100) }))
     .sort((a, b) => b.count - a.count);
 
-  // Insights
   const insights: string[] = [];
-  if (newProducts.length > 0 && usedProducts.length > 0) {
+  if (newProducts.length > 0 && usedProducts.length > 0 && usedAvgPrice > 0) {
     const priceDiff = ((newAvgPrice - usedAvgPrice) / usedAvgPrice * 100).toFixed(1);
     insights.push(`El producto nuevo tiene una prima del ${priceDiff}% sobre el usado.`);
   }
@@ -67,7 +68,9 @@ export function analyzeProperties(properties: PropertyData[]): AnalysisResult {
   if (usedAvgPricePerM2 > 0) {
     insights.push(`El precio promedio por m² de producto usado es $${usedAvgPricePerM2.toLocaleString('es-MX', { maximumFractionDigits: 0 })}.`);
   }
-  const trimmedCount = properties.length - (properties.length - Math.floor(properties.length * 0.1) * 2);
+
+  const trimCount = Math.floor(properties.length * 0.1);
+  const trimmedCount = Math.max(properties.length - trimCount * 2, 0);
   insights.push(`Se analizaron ${properties.length} propiedades. Se aplicó la regla de recorte del 10% superior e inferior.`);
 
   return {
@@ -85,6 +88,8 @@ export function analyzeProperties(properties: PropertyData[]): AnalysisResult {
     insights,
     totalProperties: properties.length,
     trimmedProperties: trimmedCount,
+    newCount: newProducts.length,
+    usedCount: usedProducts.length,
   };
 }
 
@@ -107,7 +112,6 @@ export function parseJsonImport(jsonString: string): PropertyData[] {
   }
 }
 
-// Demo data for testing
 export function getDemoData(): PropertyData[] {
   return [
     { price: 3500000, pricePerM2: 25000, area: 140, colony: 'Valle Real', type: 'new', source: 'Demo' },
