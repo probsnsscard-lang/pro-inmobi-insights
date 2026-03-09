@@ -24,6 +24,8 @@ export interface AnalysisResult {
   trimmedProperties: number;
   newCount?: number;
   usedCount?: number;
+  municipality?: string;
+  purityFilter?: number;
 }
 
 function trimmedMean(values: number[]): number {
@@ -40,9 +42,17 @@ export function analyzeProperties(properties: PropertyData[]): AnalysisResult {
   const usedProducts = properties.filter(p => p.type === 'used');
 
   const newAvgPrice = trimmedMean(newProducts.map(p => p.price));
-  const newAvgPricePerM2 = trimmedMean(newProducts.map(p => p.pricePerM2));
+  // Fix: compute $/m² per property (price / area) THEN average
+  const newPricePerM2Values = newProducts
+    .filter(p => p.area > 0)
+    .map(p => p.price / p.area);
+  const newAvgPricePerM2 = trimmedMean(newPricePerM2Values);
+
   const usedAvgPrice = trimmedMean(usedProducts.map(p => p.price));
-  const usedAvgPricePerM2 = trimmedMean(usedProducts.map(p => p.pricePerM2));
+  const usedPricePerM2Values = usedProducts
+    .filter(p => p.area > 0)
+    .map(p => p.price / p.area);
+  const usedAvgPricePerM2 = trimmedMean(usedPricePerM2Values);
 
   const colonyCounts: Record<string, number> = {};
   properties.forEach(p => {
@@ -53,6 +63,9 @@ export function analyzeProperties(properties: PropertyData[]): AnalysisResult {
   const colonyDistribution = Object.entries(colonyCounts)
     .map(([name, count]) => ({ name, count, percentage: Math.round((count / total) * 100) }))
     .sort((a, b) => b.count - a.count);
+
+  // Determine municipality from most common colony
+  const municipality = colonyDistribution.length > 0 ? colonyDistribution[0].name : 'No determinado';
 
   const insights: string[] = [];
   if (newProducts.length > 0 && usedProducts.length > 0 && usedAvgPrice > 0) {
@@ -71,6 +84,10 @@ export function analyzeProperties(properties: PropertyData[]): AnalysisResult {
 
   const trimCount = Math.floor(properties.length * 0.1);
   const trimmedCount = Math.max(properties.length - trimCount * 2, 0);
+  // Purity filter: percentage of properties with valid price AND area
+  const validCount = properties.filter(p => p.price > 0 && p.area > 0).length;
+  const purityFilter = Math.round((validCount / total) * 100);
+
   insights.push(`Se analizaron ${properties.length} propiedades. Se aplicó la regla de recorte del 10% superior e inferior.`);
 
   return {
@@ -90,6 +107,8 @@ export function analyzeProperties(properties: PropertyData[]): AnalysisResult {
     trimmedProperties: trimmedCount,
     newCount: newProducts.length,
     usedCount: usedProducts.length,
+    municipality,
+    purityFilter,
   };
 }
 
