@@ -12,8 +12,11 @@ export function generatePDF(result: AnalysisResult) {
   const contentW = W - marginL - marginR;
   let y = 14;
 
-  // Header bar
-  doc.setFillColor(30, 58, 95); // navy
+  const hasNew = (result.newCount ?? result.newProducts.length) > 0 && result.newAvgPrice > 0;
+  const hasUsed = (result.usedCount ?? result.usedProducts.length) > 0 && result.usedAvgPrice > 0;
+
+  // ===== HEADER =====
+  doc.setFillColor(30, 58, 95);
   doc.rect(0, 0, W, 28, 'F');
   doc.setFontSize(18);
   doc.setTextColor(255, 255, 255);
@@ -21,12 +24,67 @@ export function generatePDF(result: AnalysisResult) {
   doc.text('Pro Inmobi — Opinión de Valor de Mercado', marginL, 12);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Fecha: ${new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}   |   Propiedades analizadas: ${result.totalProperties}`, marginL, 20);
+  doc.text(
+    `Fecha: ${new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}   |   Propiedades analizadas: ${result.totalProperties}`,
+    marginL, 20
+  );
 
-  y = 36;
+  y = 34;
 
-  // ---- PRODUCTO NUEVO ----
-  doc.setFillColor(5, 150, 105); // emerald
+  // ===== 1. TABLA DE FILTROS (Resumen Ejecutivo) =====
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(30, 58, 95);
+  doc.text('Resumen Ejecutivo', marginL, y);
+  y += 6;
+
+  // Table header
+  const colWidths = [contentW * 0.3, contentW * 0.23, contentW * 0.24, contentW * 0.23];
+  const headers = ['Municipio', 'Muestra Gemini', 'Propiedades Válidas', 'Filtro de Pureza'];
+
+  doc.setFillColor(30, 58, 95);
+  doc.rect(marginL, y, contentW, 7, 'F');
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(255, 255, 255);
+  let xPos = marginL;
+  headers.forEach((h, i) => {
+    doc.text(h, xPos + 2, y + 5);
+    xPos += colWidths[i];
+  });
+
+  y += 7;
+
+  // Table row
+  const validProps = result.totalProperties;
+  const purity = result.purityFilter ?? Math.round(
+    ((result.newProducts?.filter(p => p.price > 0 && p.area > 0).length ?? 0) +
+     (result.usedProducts?.filter(p => p.price > 0 && p.area > 0).length ?? 0)) /
+    Math.max(result.totalProperties, 1) * 100
+  );
+
+  doc.setFillColor(245, 247, 250);
+  doc.rect(marginL, y, contentW, 7, 'F');
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(40, 40, 40);
+  xPos = marginL;
+  const rowValues = [
+    result.municipality || 'Zona Analizada',
+    `${result.totalProperties}`,
+    `${validProps}`,
+    `${purity}%`,
+  ];
+  rowValues.forEach((val, i) => {
+    doc.text(val, xPos + 2, y + 5);
+    xPos += colWidths[i];
+  });
+
+  y += 12;
+
+  // ===== 2. PRODUCT SECTIONS =====
+  // Headers
+  doc.setFillColor(5, 150, 105);
   doc.roundedRect(marginL, y, contentW / 2 - 4, 8, 2, 2, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(10);
@@ -40,7 +98,8 @@ export function generatePDF(result: AnalysisResult) {
 
   y += 14;
 
-  // New product metrics
+  const halfW = contentW / 2 - 4;
+
   const metricRow = (label: string, value: string, x: number, yPos: number) => {
     doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
@@ -52,20 +111,35 @@ export function generatePDF(result: AnalysisResult) {
     doc.text(value, x, yPos + 7);
   };
 
-  const halfW = contentW / 2 - 4;
+  const noDataText = (x: number, yPos: number) => {
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(160, 160, 160);
+    doc.text('Sin oferta detectada', x, yPos);
+    doc.text('en este segmento', x, yPos + 5);
+  };
 
-  // New
-  metricRow('Precio Promedio', fmt(result.newAvgPrice), marginL, y);
-  metricRow('$/m²', fmt(result.newAvgPricePerM2), marginL + halfW * 0.55, y);
+  // New product
+  if (hasNew) {
+    metricRow('Precio Promedio', fmt(result.newAvgPrice), marginL, y);
+    metricRow('$/m²', fmt(result.newAvgPricePerM2), marginL + halfW * 0.55, y);
+  } else {
+    noDataText(marginL, y + 3);
+  }
 
-  // Used
-  metricRow('Precio Promedio', fmt(result.usedAvgPrice), colR, y);
-  metricRow('$/m²', fmt(result.usedAvgPricePerM2), colR + halfW * 0.55, y);
+  // Used product
+  if (hasUsed) {
+    metricRow('Precio Promedio', fmt(result.usedAvgPrice), colR, y);
+    metricRow('$/m²', fmt(result.usedAvgPricePerM2), colR + halfW * 0.55, y);
+  } else {
+    noDataText(colR, y + 3);
+  }
 
   y += 18;
 
   // 60/40 Rule
-  const rule6040 = (x: number, yPos: number, c60: number, t40: number) => {
+  const rule6040 = (x: number, yPos: number, c60: number, t40: number, show: boolean) => {
+    if (!show) return;
     doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(120, 120, 120);
@@ -94,8 +168,8 @@ export function generatePDF(result: AnalysisResult) {
     doc.text(fmt(t40), x2 + 2, yPos + 10);
   };
 
-  rule6040(marginL, y, result.newConstruction60, result.newTerrain40);
-  rule6040(colR, y, result.usedConstruction60, result.usedTerrain40);
+  rule6040(marginL, y, result.newConstruction60, result.newTerrain40, hasNew);
+  rule6040(colR, y, result.usedConstruction60, result.usedTerrain40, hasUsed);
 
   y += 22;
 
@@ -104,7 +178,7 @@ export function generatePDF(result: AnalysisResult) {
   doc.line(marginL, y, W - marginR, y);
   y += 6;
 
-  // Colony Distribution
+  // ===== 3. COLONY DISTRIBUTION =====
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(30, 58, 95);
@@ -141,7 +215,7 @@ export function generatePDF(result: AnalysisResult) {
   doc.line(marginL, y, W - marginR, y);
   y += 6;
 
-  // Insights
+  // ===== 4. INSIGHTS =====
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(30, 58, 95);
@@ -157,19 +231,43 @@ export function generatePDF(result: AnalysisResult) {
     y += lines.length * 4 + 2;
   });
 
-  // Footer
-  const footerY = 270 - 10;
+  // ===== 5. AVISO LEGAL =====
+  const legalY = Math.max(y + 6, 235);
   doc.setDrawColor(220, 220, 220);
-  doc.line(marginL, footerY - 4, W - marginR, footerY - 4);
+  doc.line(marginL, legalY, W - marginR, legalY);
+
+  doc.setFillColor(248, 249, 250);
+  doc.rect(marginL, legalY + 1, contentW, 28, 'F');
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(30, 58, 95);
+  doc.text('Aviso Legal', marginL + 2, legalY + 6);
+
   doc.setFontSize(6);
-  doc.setFont('helvetica', 'italic');
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100, 100, 100);
+  const legalText = [
+    'Este reporte es un estimado basado en datos de mercado recopilados de fuentes públicas y no constituye un avalúo formal.',
+    'Los valores presentados son orientativos y están sujetos a variaciones del mercado inmobiliario.',
+    'Pro Inmobi no se hace responsable por decisiones financieras tomadas con base en este documento.',
+    'Para una valuación oficial, se recomienda contratar los servicios de un perito valuador certificado.',
+    `Reporte generado automáticamente el ${new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })} con ${result.totalProperties} propiedades analizadas.`,
+  ];
+  let ly = legalY + 11;
+  legalText.forEach(line => {
+    doc.text(`• ${line}`, marginL + 2, ly);
+    ly += 4;
+  });
+
+  // Footer brand
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(30, 58, 95);
+  doc.text('Pro Inmobi — Opinión de Valor de Mercado', marginL, 270);
+  doc.setFont('helvetica', 'normal');
   doc.setTextColor(150, 150, 150);
-  doc.text(
-    'Este reporte es un estimado basado en datos de mercado y no sustituye a un avalúo formal.',
-    marginL,
-    footerY
-  );
-  doc.text('Pro Inmobi — Opinión de Valor  |  Generado automáticamente', marginL, footerY + 4);
+  doc.text('www.proinmobi.com', W - marginR - 35, 270);
 
   doc.save('ProInmobi_Opinion_de_Valor.pdf');
 }
