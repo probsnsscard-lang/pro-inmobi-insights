@@ -188,10 +188,10 @@ const InputPanel = ({ onAnalyze, onAIResult, isProcessing, setIsProcessing }: In
         const workbook = XLSX.read(data, { type: 'array' });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const rawRows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-        const cleaned = rawRows.map(mapRow).filter(Boolean) as CleanProperty[];
+        const cleaned = mapRows(rawRows);
 
         if (cleaned.length === 0) {
-          toast.error(`No se encontraron propiedades válidas en "${file.name}".`);
+          toast.warning(`No se detectaron columnas de precio en "${file.name}". Verifica que el archivo tenga datos numéricos.`);
           return;
         }
 
