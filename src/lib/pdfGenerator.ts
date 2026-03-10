@@ -83,7 +83,7 @@ export function generatePDF(result: AnalysisResult) {
   y += 12;
 
   // ===== 2. PRODUCT SECTIONS =====
-  // Headers
+  // Headers — Green for New, Navy for Used
   doc.setFillColor(5, 150, 105);
   doc.roundedRect(marginL, y, contentW / 2 - 4, 8, 2, 2, 'F');
   doc.setTextColor(255, 255, 255);
