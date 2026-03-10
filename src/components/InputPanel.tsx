@@ -27,24 +27,6 @@ interface CleanProperty {
   type: 'new' | 'used';
 }
 
-const COLUMN_MAP: Record<string, string> = {
-  precio: 'price', price: 'price', 'precio total': 'price',
-  'postingprices-module__price': 'price',
-  'andes-money-amount__fraction': 'price',
-  'snippet__content__price': 'price',
-  metros: 'area', area: 'area', 'metros de construcción': 'area',
-  'metros de construccion': 'area', m2: 'area', superficie: 'area',
-  'postingmainfeatures-module__posting-main-features-span': 'area',
-  'poly-attributes_list__item 3': 'area',
-  'property__number': 'area',
-  colonia: 'colony', colony: 'colony', zona: 'colony',
-  'postinglocations-module__location-text': 'colony',
-  'poly-component__location': 'colony',
-  'snippet__content__location': 'colony',
-  estado: 'type', type: 'type', tipo: 'type',
-  condición: 'type', condicion: 'type',
-};
-
 const NEW_KEYWORDS = ['nuevo', 'nueva', 'new', 'preventa', 'pre-venta', 'estrenar', 'desarrollo'];
 
 const cleanNumber = (val: unknown): number => {
@@ -57,21 +39,126 @@ const detectType = (val: unknown): 'new' | 'used' => {
   return NEW_KEYWORDS.some(k => str.includes(k)) ? 'new' : 'used';
 };
 
-const mapRow = (row: Record<string, unknown>): CleanProperty | null => {
-  const mapped: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(row)) {
-    const stdKey = COLUMN_MAP[key.trim().toLowerCase()];
-    if (stdKey) mapped[stdKey] = value;
+/* ── Smart column detection ─────────────────────────────────── */
+
+// Known hints (lowercase) — used as bonus signal, NOT required
+const PRICE_HINTS = ['precio', 'price', 'precio total', 'costo', 'valor', 'monto', 'amount'];
+const AREA_HINTS = ['metro', 'area', 'superficie', 'm2', 'construcción', 'construccion', 'terreno', 'size', 'sqm'];
+const COLONY_HINTS = ['colonia', 'colony', 'zona', 'ubicación', 'ubicacion', 'location', 'barrio', 'fraccionamiento', 'delegación', 'municipio'];
+const TYPE_HINTS = ['tipo', 'type', 'estado', 'condición', 'condicion', 'status'];
+
+interface DetectedColumns {
+  priceCol: string | null;
+  areaCol: string | null;
+  colonyCol: string | null;
+  typeCol: string | null;
+}
+
+function detectColumns(rows: Record<string, unknown>[]): DetectedColumns {
+  if (rows.length === 0) return { priceCol: null, areaCol: null, colonyCol: null, typeCol: null };
+
+  const sample = rows.slice(0, Math.min(rows.length, 100));
+  const keys = Object.keys(rows[0]);
+
+  // Score each column
+  const colStats: Record<string, { median: number; numericCount: number; textCount: number; values: number[] }> = {};
+
+  for (const key of keys) {
+    const nums: number[] = [];
+    let textCount = 0;
+    for (const row of sample) {
+      const v = cleanNumber(row[key]);
+      if (v > 0) nums.push(v);
+      const sv = String(row[key] ?? '').trim();
+      if (sv.length > 0 && isNaN(Number(sv.replace(/[^0-9.-]/g, '')))) textCount++;
+    }
+    nums.sort((a, b) => a - b);
+    const median = nums.length > 0 ? nums[Math.floor(nums.length / 2)] : 0;
+    colStats[key] = { median, numericCount: nums.length, textCount, values: nums };
   }
-  const price = cleanNumber(mapped.price);
-  if (!price) return null;
-  return {
-    price,
-    area: cleanNumber(mapped.area),
-    colony: String(mapped.colony || 'Sin colonia').trim() || 'Sin colonia',
-    type: mapped.type ? detectType(mapped.type) : 'used',
-  };
-};
+
+  // ── Price: column with highest median AND values typically > 100,000
+  let priceCol: string | null = null;
+  let bestPriceScore = 0;
+  for (const key of keys) {
+    const s = colStats[key];
+    if (s.numericCount < sample.length * 0.3) continue; // at least 30% numeric
+    if (s.median < 50000) continue; // prices should be large numbers
+    let score = s.median;
+    // Bonus for name hints
+    const kl = key.toLowerCase();
+    if (PRICE_HINTS.some(h => kl.includes(h))) score *= 2;
+    if (score > bestPriceScore) { bestPriceScore = score; priceCol = key; }
+  }
+
+  // ── Area: column with median roughly 30–1500 (construction m²)
+  let areaCol: string | null = null;
+  let bestAreaScore = 0;
+  for (const key of keys) {
+    if (key === priceCol) continue;
+    const s = colStats[key];
+    if (s.numericCount < sample.length * 0.2) continue;
+    if (s.median < 15 || s.median > 5000) continue;
+    // Prefer medians in 50-600 range
+    let score = (s.median >= 50 && s.median <= 600) ? 100 : 10;
+    score *= s.numericCount;
+    const kl = key.toLowerCase();
+    if (AREA_HINTS.some(h => kl.includes(h))) score *= 3;
+    if (score > bestAreaScore) { bestAreaScore = score; areaCol = key; }
+  }
+
+  // ── Colony: text column with most unique string values
+  let colonyCol: string | null = null;
+  let bestColonyScore = 0;
+  for (const key of keys) {
+    if (key === priceCol || key === areaCol) continue;
+    const s = colStats[key];
+    if (s.textCount < sample.length * 0.3) continue;
+    const uniqueTexts = new Set(sample.map(r => String(r[key] ?? '').trim().toLowerCase()).filter(Boolean));
+    let score = uniqueTexts.size;
+    const kl = key.toLowerCase();
+    if (COLONY_HINTS.some(h => kl.includes(h))) score *= 5;
+    if (score > bestColonyScore) { bestColonyScore = score; colonyCol = key; }
+  }
+
+  // ── Type: column with few unique text values (new/used)
+  let typeCol: string | null = null;
+  for (const key of keys) {
+    if (key === priceCol || key === areaCol || key === colonyCol) continue;
+    const kl = key.toLowerCase();
+    if (TYPE_HINTS.some(h => kl.includes(h))) { typeCol = key; break; }
+    const s = colStats[key];
+    if (s.textCount > sample.length * 0.3) {
+      const uniq = new Set(sample.map(r => String(r[key] ?? '').trim().toLowerCase()).filter(Boolean));
+      if (uniq.size >= 2 && uniq.size <= 5) {
+        const vals = [...uniq];
+        if (vals.some(v => NEW_KEYWORDS.some(k => v.includes(k)))) { typeCol = key; break; }
+      }
+    }
+  }
+
+  return { priceCol, areaCol, colonyCol, typeCol };
+}
+
+function mapRows(rows: Record<string, unknown>[]): CleanProperty[] {
+  const cols = detectColumns(rows);
+  if (!cols.priceCol) {
+    // Fallback: try every row looking for any numeric > 100k
+    console.warn('Auto-detect: no price column found, using best-effort fallback');
+    return [];
+  }
+
+  const results: CleanProperty[] = [];
+  for (const row of rows) {
+    const price = cleanNumber(row[cols.priceCol]);
+    if (!price || price < 10000) continue; // skip non-price rows
+    const area = cols.areaCol ? cleanNumber(row[cols.areaCol]) : 0;
+    const colony = cols.colonyCol ? String(row[cols.colonyCol] ?? 'Sin colonia').trim() || 'Sin colonia' : 'Sin colonia';
+    const type = cols.typeCol ? detectType(row[cols.typeCol]) : 'used';
+    results.push({ price, area, colony, type });
+  }
+  return results;
+}
 
 const toPropertyDataset = (rows: CleanProperty[]): PropertyData[] =>
   rows.map((r) => ({
@@ -101,10 +188,10 @@ const InputPanel = ({ onAnalyze, onAIResult, isProcessing, setIsProcessing }: In
         const workbook = XLSX.read(data, { type: 'array' });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const rawRows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-        const cleaned = rawRows.map(mapRow).filter(Boolean) as CleanProperty[];
+        const cleaned = mapRows(rawRows);
 
         if (cleaned.length === 0) {
-          toast.error(`No se encontraron propiedades válidas en "${file.name}".`);
+          toast.warning(`No se detectaron columnas de precio en "${file.name}". Verifica que el archivo tenga datos numéricos.`);
           return;
         }
 
