@@ -248,7 +248,7 @@ export function generatePDF(result: AnalysisResult) {
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(100, 100, 100);
   const legalText = [
-    'Este reporte es un estimado basado en datos de mercado recopilados de fuentes públicas y no constituye un avalúo formal.',
+    'Este reporte es un estimado basado en datos de mercado recopilados de múltiples fuentes y no constituye un avalúo formal.',
     'Los valores presentados son orientativos y están sujetos a variaciones del mercado inmobiliario.',
     'Pro Inmobi no se hace responsable por decisiones financieras tomadas con base en este documento.',
     'Para una valuación oficial, se recomienda contratar los servicios de un perito valuador certificado.',
