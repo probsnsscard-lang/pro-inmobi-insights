@@ -83,7 +83,7 @@ export function generatePDF(result: AnalysisResult) {
   y += 12;
 
   // ===== 2. PRODUCT SECTIONS =====
-  // Headers
+  // Headers — Green for New, Navy for Used
   doc.setFillColor(5, 150, 105);
   doc.roundedRect(marginL, y, contentW / 2 - 4, 8, 2, 2, 'F');
   doc.setTextColor(255, 255, 255);
@@ -248,7 +248,7 @@ export function generatePDF(result: AnalysisResult) {
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(100, 100, 100);
   const legalText = [
-    'Este reporte es un estimado basado en datos de mercado recopilados de fuentes públicas y no constituye un avalúo formal.',
+    'Este reporte es un estimado basado en datos de mercado recopilados de múltiples fuentes y no constituye un avalúo formal.',
     'Los valores presentados son orientativos y están sujetos a variaciones del mercado inmobiliario.',
     'Pro Inmobi no se hace responsable por decisiones financieras tomadas con base en este documento.',
     'Para una valuación oficial, se recomienda contratar los servicios de un perito valuador certificado.',

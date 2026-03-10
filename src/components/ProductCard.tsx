@@ -27,7 +27,7 @@ const ProductCard = ({
 
   return (
     <div className="bg-card rounded-xl card-shadow-lg overflow-hidden">
-      <div className={`px-5 py-3 flex items-center justify-between ${isNew ? 'gradient-navy' : 'gradient-emerald'}`}>
+      <div className={`px-5 py-3 flex items-center justify-between ${isNew ? 'gradient-emerald' : 'gradient-navy'}`}>
         <div className="flex items-center gap-2">
           {isNew ? (
             <TrendingUp className="w-5 h-5 text-primary-foreground" />

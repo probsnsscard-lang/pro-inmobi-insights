@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Zap, Play, Upload, FileSpreadsheet, X, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Zap, Play, Upload, FileSpreadsheet, X, HelpCircle, ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PropertyData, getDemoData, AnalysisResult, analyzeProperties } from '@/lib/calculationEngine';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,6 +24,7 @@ interface CleanProperty {
   price: number;
   area: number;
   colony: string;
+  type: 'new' | 'used';
 }
 
 const COLUMN_MAP: Record<string, string> = {
@@ -44,9 +45,16 @@ const COLUMN_MAP: Record<string, string> = {
   condición: 'type', condicion: 'type',
 };
 
+const NEW_KEYWORDS = ['nuevo', 'nueva', 'new', 'preventa', 'pre-venta', 'estrenar', 'desarrollo'];
+
 const cleanNumber = (val: unknown): number => {
   if (typeof val === 'number') return Number.isFinite(val) ? val : 0;
   return Number(String(val ?? '').replace(/[^0-9.,]/g, '').replace(/,/g, '')) || 0;
+};
+
+const detectType = (val: unknown): 'new' | 'used' => {
+  const str = String(val ?? '').toLowerCase().trim();
+  return NEW_KEYWORDS.some(k => str.includes(k)) ? 'new' : 'used';
 };
 
 const mapRow = (row: Record<string, unknown>): CleanProperty | null => {
@@ -57,7 +65,12 @@ const mapRow = (row: Record<string, unknown>): CleanProperty | null => {
   }
   const price = cleanNumber(mapped.price);
   if (!price) return null;
-  return { price, area: cleanNumber(mapped.area), colony: String(mapped.colony || 'Sin colonia').trim() || 'Sin colonia' };
+  return {
+    price,
+    area: cleanNumber(mapped.area),
+    colony: String(mapped.colony || 'Sin colonia').trim() || 'Sin colonia',
+    type: mapped.type ? detectType(mapped.type) : 'used',
+  };
 };
 
 const toPropertyDataset = (rows: CleanProperty[]): PropertyData[] =>
@@ -66,8 +79,8 @@ const toPropertyDataset = (rows: CleanProperty[]): PropertyData[] =>
     area: r.area,
     pricePerM2: r.area ? Math.round(r.price / r.area) : 0,
     colony: r.colony,
-    type: 'used' as const,
-    source: 'excel',
+    type: r.type,
+    source: 'Análisis de Mercado Pro',
   }));
 
 const EMPTY_SLOT: FileSlot = { file: null, name: '', rows: [], totalRows: 0 };
@@ -176,7 +189,7 @@ const InputPanel = ({ onAnalyze, onAIResult, isProcessing, setIsProcessing }: In
     }
   };
 
-  const labels = ['Archivo 1', 'Archivo 2', 'Archivo 3'];
+  const labels = ['Fuente 1', 'Fuente 2', 'Fuente 3'];
 
   return (
     <section className="bg-card rounded-xl card-shadow p-6 space-y-5">
@@ -188,7 +201,11 @@ const InputPanel = ({ onAnalyze, onAIResult, isProcessing, setIsProcessing }: In
       {/* 3 file slots */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {slots.map((slot, i) => (
-          <div key={i} className="rounded-xl border-2 border-dashed border-border bg-muted/20 p-4 flex flex-col items-center justify-center gap-3 min-h-[160px] transition-colors hover:border-secondary/50">
+          <div key={i} className={`rounded-xl border-2 p-4 flex flex-col items-center justify-center gap-3 min-h-[160px] transition-colors ${
+            slot.file
+              ? 'border-secondary bg-secondary/5'
+              : 'border-dashed border-border bg-muted/20 hover:border-secondary/50'
+          }`}>
             <input
               ref={fileRefs[i]}
               type="file"
@@ -203,12 +220,13 @@ const InputPanel = ({ onAnalyze, onAIResult, isProcessing, setIsProcessing }: In
 
             {slot.file ? (
               <div className="flex flex-col items-center gap-2 w-full">
+                <CheckCircle2 className="w-8 h-8 text-secondary" />
                 <div className="flex items-center gap-2 text-foreground">
-                  <FileSpreadsheet className="w-5 h-5 text-secondary shrink-0" />
+                  <FileSpreadsheet className="w-4 h-4 text-secondary shrink-0" />
                   <span className="text-sm font-medium truncate max-w-[140px]">{slot.name}</span>
                 </div>
                 <span className="text-xs font-semibold text-secondary">
-                  {slot.rows.length} propiedades detectadas
+                  ✅ {slot.rows.length} propiedades detectadas
                 </span>
                 <button
                   type="button"
@@ -261,7 +279,7 @@ const InputPanel = ({ onAnalyze, onAIResult, isProcessing, setIsProcessing }: In
       {showGuide && (
         <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3 text-xs text-muted-foreground animate-in slide-in-from-top-2">
           <p className="font-semibold text-foreground text-sm">🛠️ Pre-procesamiento automático</p>
-          <p>Sube archivos de <strong>Inmuebles24</strong>, <strong>MercadoLibre</strong> o <strong>Lamudi</strong>. La app detecta las columnas automáticamente y conserva solo: <span className="font-mono font-semibold text-foreground">price</span>, <span className="font-mono font-semibold text-foreground">area</span>, <span className="font-mono font-semibold text-foreground">colony</span>.</p>
+          <p>Sube archivos Excel de tus fuentes de datos inmobiliarios. La app detecta las columnas automáticamente y conserva solo: <span className="font-mono font-semibold text-foreground">price</span>, <span className="font-mono font-semibold text-foreground">area</span>, <span className="font-mono font-semibold text-foreground">colony</span>.</p>
           <p>Se eliminan enlaces, imágenes y descripciones para optimizar el análisis masivo.</p>
         </div>
       )}
