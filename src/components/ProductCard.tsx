@@ -65,11 +65,11 @@ const ProductCard = ({
             </p>
             <div className="flex gap-2">
               <div className="flex-1 bg-primary/10 rounded-lg p-3 text-center">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">60% Construcción</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">🏠 60% Construcción</p>
                 <p className="text-base font-display font-extrabold text-primary">{fmt(construction60)}</p>
               </div>
               <div className="flex-1 bg-secondary/10 rounded-lg p-3 text-center">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">40% Terreno</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">🌳 40% Terreno</p>
                 <p className="text-base font-display font-extrabold text-secondary">{fmt(terrain40)}</p>
               </div>
             </div>
