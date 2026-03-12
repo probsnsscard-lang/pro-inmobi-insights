@@ -5,8 +5,7 @@ interface ProductCardProps {
   type: 'new' | 'used';
   avgPrice: number;
   avgPricePerM2: number;
-  construction60: number;
-  terrain40: number;
+  constructionPct: number;
   count: number;
 }
 
@@ -18,12 +17,14 @@ const ProductCard = ({
   type,
   avgPrice,
   avgPricePerM2,
-  construction60,
-  terrain40,
+  constructionPct,
   count,
 }: ProductCardProps) => {
   const isNew = type === 'new';
   const hasData = count > 0 && avgPrice > 0;
+  const terrainPct = 100 - constructionPct;
+  const constructionVal = avgPrice * (constructionPct / 100);
+  const terrainVal = avgPrice * (terrainPct / 100);
 
   return (
     <div className="bg-card rounded-xl card-shadow-lg overflow-hidden">
@@ -61,16 +62,16 @@ const ProductCard = ({
 
           <div>
             <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-2">
-              Regla 60/40
+              Distribución {constructionPct}/{terrainPct}
             </p>
             <div className="flex gap-2">
               <div className="flex-1 bg-primary/10 rounded-lg p-3 text-center">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">🏠 60% Construcción</p>
-                <p className="text-base font-display font-extrabold text-primary">{fmt(construction60)}</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">🏠 {constructionPct}% Construcción</p>
+                <p className="text-base font-display font-extrabold text-primary">{fmt(constructionVal)}</p>
               </div>
               <div className="flex-1 bg-secondary/10 rounded-lg p-3 text-center">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">🌳 40% Terreno</p>
-                <p className="text-base font-display font-extrabold text-secondary">{fmt(terrain40)}</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">🌳 {terrainPct}% Terreno</p>
+                <p className="text-base font-display font-extrabold text-secondary">{fmt(terrainVal)}</p>
               </div>
             </div>
           </div>

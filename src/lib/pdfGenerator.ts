@@ -4,7 +4,12 @@ import { AnalysisResult } from './calculationEngine';
 const fmt = (n: number) =>
   `$${n.toLocaleString('es-MX', { maximumFractionDigits: 0 })}`;
 
-export function generatePDF(result: AnalysisResult, estimatedTotal?: number) {
+export function generatePDF(
+  result: AnalysisResult,
+  estimatedTotal?: number,
+  constructionPct: number = 60,
+  clientName: string = ''
+) {
   const doc = new jsPDF('p', 'mm', 'letter');
   const W = 216;
   const marginL = 16;
@@ -16,8 +21,10 @@ export function generatePDF(result: AnalysisResult, estimatedTotal?: number) {
   const hasUsed = (result.usedCount ?? result.usedProducts.length) > 0 && result.usedAvgPrice > 0;
   const nc = result.newCount ?? result.newProducts.length;
   const uc = result.usedCount ?? result.usedProducts.length;
+  const terrainPct = 100 - constructionPct;
+  const cFrac = constructionPct / 100;
+  const tFrac = terrainPct / 100;
 
-  // Compute estimated total if not provided
   const totalVal = estimatedTotal ?? (() => {
     const t = nc + uc;
     if (t === 0) return 0;
@@ -26,21 +33,22 @@ export function generatePDF(result: AnalysisResult, estimatedTotal?: number) {
 
   // ===== HEADER =====
   doc.setFillColor(30, 58, 95);
-  doc.rect(0, 0, W, 28, 'F');
-  doc.setFontSize(18);
+  doc.rect(0, 0, W, 30, 'F');
+  doc.setFontSize(16);
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.text('Análisis de Mercado Pro — Opinión de Valor', marginL, 12);
-  doc.setFontSize(9);
+  doc.text('Análisis de Mercado Pro — Opinión de Valor', marginL, 11);
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.text(
-    `Fecha: ${new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}   |   Propiedades analizadas: ${result.totalProperties}`,
-    marginL, 20
-  );
+  const dateStr = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+  doc.text(`Fecha: ${dateStr}   |   Propiedades: ${result.totalProperties}`, marginL, 18);
   doc.setFontSize(7);
-  doc.text('Elaborado por: Ataúlfo Figón', W - marginR - 50, 20);
+  doc.text('Elaborado por: Ataúlfo Figón', marginL, 24);
+  if (clientName) {
+    doc.text(`Cliente: ${clientName}`, W - marginR - 60, 24);
+  }
 
-  y = 34;
+  y = 36;
 
   // ===== 1. RESUMEN EJECUTIVO =====
   doc.setFontSize(11);
@@ -64,7 +72,6 @@ export function generatePDF(result: AnalysisResult, estimatedTotal?: number) {
   });
   y += 7;
 
-  const validProps = result.totalProperties;
   const purity = result.purityFilter ?? Math.round(
     (result.newProducts.filter(p => p.price > 0 && p.area > 0).length +
      result.usedProducts.filter(p => p.price > 0 && p.area > 0).length) /
@@ -77,7 +84,7 @@ export function generatePDF(result: AnalysisResult, estimatedTotal?: number) {
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(40, 40, 40);
   xPos = marginL;
-  [result.municipality || 'Zona Analizada', `${result.totalProperties}`, `${validProps}`, `${purity}%`]
+  [result.municipality || 'Zona Analizada', `${result.totalProperties}`, `${result.totalProperties}`, `${purity}%`]
     .forEach((val, i) => {
       doc.text(val, xPos + 2, y + 5);
       xPos += colWidths[i];
@@ -90,16 +97,16 @@ export function generatePDF(result: AnalysisResult, estimatedTotal?: number) {
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(100, 100, 100);
-  doc.text('Valor Estimado Total (Promedio Ponderado)', marginL + 4, y + 5);
+  doc.text('Valor Estimado Total (Promedio Ponderado Proporcional)', marginL + 4, y + 5);
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(30, 58, 95);
   doc.text(fmt(totalVal), marginL + 4, y + 12);
   y += 20;
 
-  // ===== 3. SEMÁFORO DE MERCADO =====
+  // ===== 3. SEMÁFORO DE MERCADO + $/m² =====
   let semaphoreLabel = 'Estable';
-  let semaphoreColor: [number, number, number] = [210, 170, 60]; // yellow
+  let semaphoreColor: [number, number, number] = [210, 170, 60];
   if (hasNew && hasUsed && result.usedAvgPrice > 0) {
     const premium = ((result.newAvgPrice - result.usedAvgPrice) / result.usedAvgPrice) * 100;
     if (premium > 30) { semaphoreLabel = 'Caliente'; semaphoreColor = [220, 60, 60]; }
@@ -109,30 +116,67 @@ export function generatePDF(result: AnalysisResult, estimatedTotal?: number) {
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(30, 58, 95);
   doc.text('Semáforo de Mercado:', marginL, y + 4);
-  doc.setFillColor(semaphoreColor[0], semaphoreColor[1], semaphoreColor[2]);
-  doc.circle(marginL + 45, y + 2.5, 3, 'F');
-  doc.setTextColor(semaphoreColor[0], semaphoreColor[1], semaphoreColor[2]);
-  doc.text(semaphoreLabel, marginL + 50, y + 4);
 
-  // ===== $/m² GAUGE (simplified visual) =====
+  // Draw 3 circles for semaphore
+  const semX = marginL + 40;
+  const colors: [number, number, number][] = [[5, 150, 105], [210, 170, 60], [220, 60, 60]];
+  const labels = ['Frío', 'Estable', 'Caliente'];
+  colors.forEach((c, i) => {
+    const active = labels[i] === semaphoreLabel;
+    if (active) {
+      doc.setFillColor(c[0], c[1], c[2]);
+    } else {
+      doc.setFillColor(220, 220, 220);
+    }
+    doc.circle(semX + i * 10, y + 3, 3, 'F');
+  });
+  doc.setFontSize(7);
+  doc.setTextColor(semaphoreColor[0], semaphoreColor[1], semaphoreColor[2]);
+  doc.text(semaphoreLabel, semX + 35, y + 4);
+
+  // $/m² gauge visual
   const gaugeX = marginL + contentW * 0.55;
   const combinedPricePerM2 = (nc + uc) > 0
     ? Math.round((result.newAvgPricePerM2 * nc + result.usedAvgPricePerM2 * uc) / (nc + uc))
     : 0;
   doc.setTextColor(30, 58, 95);
-  doc.text('Medidor $/m²:', gaugeX, y + 4);
-  doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text(fmt(combinedPricePerM2), gaugeX + 30, y + 4);
-  doc.setFontSize(7);
+  doc.setFontSize(8);
+  doc.text('Medidor $/m²:', gaugeX, y + 4);
+
+  // Draw mini gauge arc
+  const gCx = gaugeX + 50;
+  const gCy = y + 3;
+  const gR = 8;
+  // Background arc segments
+  const arcColors: [number, number, number][] = [[5, 150, 105], [210, 170, 60], [220, 60, 60]];
+  arcColors.forEach((c, i) => {
+    doc.setDrawColor(c[0], c[1], c[2]);
+    doc.setLineWidth(1.5);
+    // Simplified: just draw colored line segments
+    const startAngle = Math.PI + (i * Math.PI / 3);
+    const endAngle = Math.PI + ((i + 1) * Math.PI / 3);
+    const x1 = gCx + gR * Math.cos(startAngle);
+    const y1 = gCy + gR * Math.sin(startAngle);
+    const x2 = gCx + gR * Math.cos(endAngle);
+    const y2 = gCy + gR * Math.sin(endAngle);
+    doc.line(x1, y1, x2, y2);
+  });
+  doc.setLineWidth(0.2);
+  doc.setDrawColor(0, 0, 0);
+
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(30, 58, 95);
+  doc.text(fmt(combinedPricePerM2), gCx + 12, y + 5);
+  doc.setFontSize(6);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(150, 150, 150);
-  doc.text('/m²', gaugeX + 30 + doc.getTextWidth(fmt(combinedPricePerM2)) + 1, y + 4);
+  doc.text('/m²', gCx + 12 + doc.getTextWidth(fmt(combinedPricePerM2)) + 1, y + 5);
 
-  y += 12;
+  y += 14;
 
   // ===== 4. PRODUCT SECTIONS =====
-  // Green header for New
   doc.setFillColor(5, 150, 105);
   doc.roundedRect(marginL, y, contentW / 2 - 4, 8, 2, 2, 'F');
   doc.setTextColor(255, 255, 255);
@@ -182,23 +226,23 @@ export function generatePDF(result: AnalysisResult, estimatedTotal?: number) {
   }
   y += 18;
 
-  // 60/40 Rule with icons
-  const rule6040 = (x: number, yPos: number, c60: number, t40: number, show: boolean) => {
+  // Distribution split with dynamic %
+  const ruleSplit = (x: number, yPos: number, price: number, show: boolean) => {
     if (!show) return;
     doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(120, 120, 120);
-    doc.text('Regla 60/40', x, yPos);
+    doc.text(`Distribución ${constructionPct}/${terrainPct}`, x, yPos);
 
     doc.setFillColor(230, 240, 250);
     doc.roundedRect(x, yPos + 2, halfW * 0.45, 12, 1, 1, 'F');
     doc.setFontSize(6);
     doc.setTextColor(100, 100, 100);
-    doc.text('🏠 60% Construcción', x + 2, yPos + 6);
+    doc.text(`🏠 ${constructionPct}% Construcción`, x + 2, yPos + 6);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(30, 58, 95);
-    doc.text(fmt(c60), x + 2, yPos + 12);
+    doc.text(fmt(price * cFrac), x + 2, yPos + 12);
 
     const x2 = x + halfW * 0.5;
     doc.setFillColor(230, 250, 240);
@@ -206,15 +250,15 @@ export function generatePDF(result: AnalysisResult, estimatedTotal?: number) {
     doc.setFontSize(6);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(100, 100, 100);
-    doc.text('🌳 40% Terreno', x2 + 2, yPos + 6);
+    doc.text(`🌳 ${terrainPct}% Terreno`, x2 + 2, yPos + 6);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(5, 150, 105);
-    doc.text(fmt(t40), x2 + 2, yPos + 12);
+    doc.text(fmt(price * tFrac), x2 + 2, yPos + 12);
   };
 
-  rule6040(marginL, y, result.newConstruction60, result.newTerrain40, hasNew);
-  rule6040(colR, y, result.usedConstruction60, result.usedTerrain40, hasUsed);
+  ruleSplit(marginL, y, result.newAvgPrice, hasNew);
+  ruleSplit(colR, y, result.usedAvgPrice, hasUsed);
   y += 24;
 
   // Divider
@@ -222,7 +266,7 @@ export function generatePDF(result: AnalysisResult, estimatedTotal?: number) {
   doc.line(marginL, y, W - marginR, y);
   y += 6;
 
-  // ===== 5. COLONY DISTRIBUTION (bar chart, no pie) =====
+  // ===== 5. COLONY DISTRIBUTION (bars) =====
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(30, 58, 95);
@@ -265,14 +309,14 @@ export function generatePDF(result: AnalysisResult, estimatedTotal?: number) {
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(60, 60, 60);
   result.insights.forEach(insight => {
-    if (y > 230) return; // prevent overflow
+    if (y > 225) return;
     const lines = doc.splitTextToSize(`•  ${insight}`, contentW - 4);
     doc.text(lines, marginL + 2, y);
     y += lines.length * 4 + 2;
   });
 
   // ===== 7. AVISO LEGAL =====
-  const legalY = Math.max(y + 6, 232);
+  const legalY = Math.max(y + 6, 230);
   doc.setDrawColor(220, 220, 220);
   doc.line(marginL, legalY, W - marginR, legalY);
 
@@ -292,8 +336,9 @@ export function generatePDF(result: AnalysisResult, estimatedTotal?: number) {
     'Los valores presentados son orientativos y están sujetos a variaciones del mercado inmobiliario.',
     'Análisis de Mercado Pro no se hace responsable por decisiones financieras tomadas con base en este documento.',
     'Para una valuación oficial, se recomienda contratar los servicios de un perito valuador certificado.',
-    `Reporte generado el ${new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })} con ${result.totalProperties} propiedades.`,
+    `Reporte generado el ${dateStr} con ${result.totalProperties} propiedades. Distribución: ${constructionPct}/${terrainPct}.`,
   ];
+  const dateStr = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
   let ly = legalY + 11;
   legalText.forEach(line => {
     doc.text(`• ${line}`, marginL + 2, ly);
@@ -305,6 +350,9 @@ export function generatePDF(result: AnalysisResult, estimatedTotal?: number) {
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(30, 58, 95);
   doc.text('Análisis de Mercado Pro — Ataúlfo Figón', marginL, 270);
+  if (clientName) {
+    doc.text(`Para: ${clientName}`, marginL + 70, 270);
+  }
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(150, 150, 150);
   doc.text('Opinión de Valor de Mercado', W - marginR - 45, 270);
