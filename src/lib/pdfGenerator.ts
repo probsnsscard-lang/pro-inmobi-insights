@@ -331,14 +331,14 @@ export function generatePDF(
   doc.setFontSize(6);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(100, 100, 100);
+  const legalDateStr = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
   const legalText = [
     'Este reporte es un estimado basado en datos de mercado recopilados de múltiples fuentes y no constituye un avalúo formal.',
     'Los valores presentados son orientativos y están sujetos a variaciones del mercado inmobiliario.',
     'Análisis de Mercado Pro no se hace responsable por decisiones financieras tomadas con base en este documento.',
     'Para una valuación oficial, se recomienda contratar los servicios de un perito valuador certificado.',
-    `Reporte generado el ${dateStr} con ${result.totalProperties} propiedades. Distribución: ${constructionPct}/${terrainPct}.`,
+    `Reporte generado el ${legalDateStr} con ${result.totalProperties} propiedades. Distribución: ${constructionPct}/${terrainPct}.`,
   ];
-  const dateStr = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
   let ly = legalY + 11;
   legalText.forEach(line => {
     doc.text(`• ${line}`, marginL + 2, ly);
