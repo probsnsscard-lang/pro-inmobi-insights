@@ -64,7 +64,14 @@ const ColonyChart = ({ data }: ColonyChartProps) => {
                   className="w-3 h-3 rounded-sm shrink-0"
                   style={{ backgroundColor: COLORS[i % COLORS.length] }}
                 />
-                <span className="text-foreground truncate">{item.name}</span>
+                <a
+                  href={`https://www.google.com/maps/search/${encodeURIComponent(item.name)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-blue-500 hover:underline truncate"
+                >
+                  {item.name}
+                </a>
               </div>
               <span className="text-muted-foreground font-bold">{item.percentage}%</span>
             </div>

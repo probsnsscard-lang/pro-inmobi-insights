@@ -151,7 +151,7 @@ function mapRows(rows: Record<string, unknown>[]): CleanProperty[] {
   const results: CleanProperty[] = [];
   for (const row of rows) {
     const price = cleanNumber(row[cols.priceCol]);
-    if (!price || price < 10000) continue; // skip non-price rows
+    if (!price || price < 100000) continue; // skip rentals & non-residential below $100k
     const area = cols.areaCol ? cleanNumber(row[cols.areaCol]) : 0;
     const colony = cols.colonyCol ? String(row[cols.colonyCol] ?? 'Sin colonia').trim() || 'Sin colonia' : 'Sin colonia';
     const type = cols.typeCol ? detectType(row[cols.typeCol]) : 'used';

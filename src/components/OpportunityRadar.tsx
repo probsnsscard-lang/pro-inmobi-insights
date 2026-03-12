@@ -61,7 +61,7 @@ const OpportunityRadar = ({ properties }: OpportunityRadarProps) => {
                 className="shrink-0 border-secondary/40 text-secondary hover:bg-secondary/5"
                 onClick={() => {
                   const query = encodeURIComponent(`casa ${prop.colony} ${fmt(prop.price)}`);
-                  window.open(`https://www.google.com/search?q=${query}`, '_blank');
+                  window.open(`https://www.google.com/search?q=${query}`, '_blank', 'noreferrer');
                 }}
               >
                 <ExternalLink className="w-3.5 h-3.5 mr-1" />
