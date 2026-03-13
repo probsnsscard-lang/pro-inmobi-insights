@@ -54,7 +54,7 @@ const ColonyChart = ({ data, properties = [] }: ColonyChartProps) => {
                     href={`https://www.google.com/maps/search/${encodeURIComponent(item.name)}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-blue-500 hover:text-blue-600 hover:underline text-xs font-medium"
+                    className="inline-flex items-center gap-1 text-secondary hover:text-primary hover:underline text-xs font-medium"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                     Ver mapa
