@@ -8,7 +8,8 @@ export function generatePDF(
   result: AnalysisResult,
   estimatedTotal?: number,
   constructionPct: number = 60,
-  clientName: string = ''
+  clientName: string = '',
+  analystName: string = ''
 ) {
   const doc = new jsPDF('p', 'mm', 'letter');
   const W = 216;
@@ -43,7 +44,8 @@ export function generatePDF(
   const dateStr = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
   doc.text(`Fecha: ${dateStr}   |   Propiedades: ${result.totalProperties}`, marginL, 18);
   doc.setFontSize(8);
-  doc.text('Analista: Ataúlfo Figón', marginL, 23);
+  const displayAnalyst = analystName.trim() || 'Ataúlfo Figón';
+  doc.text(`Analista: ${displayAnalyst}`, marginL, 23);
   if (clientName) {
     doc.setFontSize(7);
     doc.text(`Cliente: ${clientName}`, marginL, 27);
@@ -146,34 +148,49 @@ export function generatePDF(
   doc.text('Medidor $/m²:', gaugeX, y + 4);
 
   // Draw mini gauge arc
-  const gCx = gaugeX + 50;
-  const gCy = y + 3;
-  const gR = 8;
-  // Background arc segments
+  // Thicker gauge arc for $/m²
+  const gCx = gaugeX + 55;
+  const gCy = y + 6;
+  const gR = 14;
   const arcColors: [number, number, number][] = [[5, 150, 105], [210, 170, 60], [220, 60, 60]];
-  arcColors.forEach((c, i) => {
+  // Draw thick arc segments
+  const segments = 12;
+  arcColors.forEach((c, zone) => {
     doc.setDrawColor(c[0], c[1], c[2]);
-    doc.setLineWidth(1.5);
-    // Simplified: just draw colored line segments
-    const startAngle = Math.PI + (i * Math.PI / 3);
-    const endAngle = Math.PI + ((i + 1) * Math.PI / 3);
-    const x1 = gCx + gR * Math.cos(startAngle);
-    const y1 = gCy + gR * Math.sin(startAngle);
-    const x2 = gCx + gR * Math.cos(endAngle);
-    const y2 = gCy + gR * Math.sin(endAngle);
-    doc.line(x1, y1, x2, y2);
+    doc.setLineWidth(4);
+    for (let s = 0; s < segments / 3; s++) {
+      const idx = zone * (segments / 3) + s;
+      const a1 = Math.PI + (idx / segments) * Math.PI;
+      const a2 = Math.PI + ((idx + 1) / segments) * Math.PI;
+      const x1 = gCx + gR * Math.cos(a1);
+      const y1 = gCy + gR * Math.sin(a1);
+      const x2 = gCx + gR * Math.cos(a2);
+      const y2 = gCy + gR * Math.sin(a2);
+      doc.line(x1, y1, x2, y2);
+    }
   });
+  // Needle
+  const maxGauge = 50000;
+  const needleRatio = Math.min(combinedPricePerM2 / maxGauge, 1);
+  const needleAngle = Math.PI + needleRatio * Math.PI;
+  const nx = gCx + (gR - 4) * Math.cos(needleAngle);
+  const ny = gCy + (gR - 4) * Math.sin(needleAngle);
+  doc.setDrawColor(30, 30, 30);
+  doc.setLineWidth(0.8);
+  doc.line(gCx, gCy, nx, ny);
+  doc.setFillColor(30, 30, 30);
+  doc.circle(gCx, gCy, 1.2, 'F');
   doc.setLineWidth(0.2);
   doc.setDrawColor(0, 0, 0);
 
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(30, 58, 95);
-  doc.text(fmt(combinedPricePerM2), gCx + 12, y + 5);
+  doc.text(fmt(combinedPricePerM2), gCx - 8, gCy + 8);
   doc.setFontSize(6);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(150, 150, 150);
-  doc.text('/m²', gCx + 12 + doc.getTextWidth(fmt(combinedPricePerM2)) + 1, y + 5);
+  doc.text('/m²', gCx - 8 + doc.getTextWidth(fmt(combinedPricePerM2)) + 1, gCy + 8);
 
   y += 14;
 
@@ -350,7 +367,7 @@ export function generatePDF(
   doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(30, 58, 95);
-  doc.text('Análisis de Mercado Pro — Ataúlfo Figón', marginL, 270);
+  doc.text(`Análisis de Mercado Pro — ${displayAnalyst}`, marginL, 270);
   if (clientName) {
     doc.text(`Para: ${clientName}`, marginL + 70, 270);
   }

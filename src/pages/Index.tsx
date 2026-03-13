@@ -32,6 +32,7 @@ const Index = () => {
   const [municipality, setMunicipality] = useState('Metepec');
   const [constructionPct, setConstructionPct] = useState(60);
   const [clientName, setClientName] = useState('');
+  const [analystName, setAnalystName] = useState('');
 
   const terrainPct = 100 - constructionPct;
 
@@ -95,12 +96,21 @@ const Index = () => {
             </select>
           </div>
           <div className="flex items-center gap-2">
+            <label className="text-sm font-display font-semibold text-foreground">Analista:</label>
+            <Input
+              value={analystName}
+              onChange={(e) => setAnalystName(e.target.value)}
+              placeholder="Ataúlfo Figón"
+              className="w-48 text-sm"
+            />
+          </div>
+          <div className="flex items-center gap-2">
             <label className="text-sm font-display font-semibold text-foreground">Cliente:</label>
             <Input
               value={clientName}
               onChange={(e) => setClientName(e.target.value)}
               placeholder="Nombre del cliente o empresa"
-              className="w-64 text-sm"
+              className="w-48 text-sm"
             />
           </div>
         </div>
@@ -167,7 +177,7 @@ const Index = () => {
                   <p className="text-xl font-display font-extrabold text-foreground">{fmt(estimatedTotal)}</p>
                 </div>
                 <Button
-                  onClick={() => generatePDF(result, estimatedTotal, constructionPct, clientName)}
+                  onClick={() => generatePDF(result, estimatedTotal, constructionPct, clientName, analystName)}
                   className="gradient-emerald text-primary-foreground border-0 hover:opacity-90 transition-opacity font-display font-semibold"
                 >
                   <FileDown className="w-4 h-4 mr-2" />
@@ -216,7 +226,7 @@ const Index = () => {
 
             {/* Colony chart + Insights */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <ColonyChart data={result.colonyDistribution} />
+              <ColonyChart data={result.colonyDistribution} properties={[...result.newProducts, ...result.usedProducts]} />
               <InsightsPanel insights={result.insights} />
             </div>
 
