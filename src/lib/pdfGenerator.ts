@@ -44,7 +44,8 @@ export function generatePDF(
   const dateStr = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
   doc.text(`Fecha: ${dateStr}   |   Propiedades: ${result.totalProperties}`, marginL, 18);
   doc.setFontSize(8);
-  doc.text('Analista: Ataúlfo Figón', marginL, 23);
+  const displayAnalyst = analystName.trim() || 'Ataúlfo Figón';
+  doc.text(`Analista: ${displayAnalyst}`, marginL, 23);
   if (clientName) {
     doc.setFontSize(7);
     doc.text(`Cliente: ${clientName}`, marginL, 27);
