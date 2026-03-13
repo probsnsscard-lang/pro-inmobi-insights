@@ -226,7 +226,7 @@ const Index = () => {
 
             {/* Colony chart + Insights */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <ColonyChart data={result.colonyDistribution} />
+              <ColonyChart data={result.colonyDistribution} properties={[...result.newProducts, ...result.usedProducts]} />
               <InsightsPanel insights={result.insights} />
             </div>
 
