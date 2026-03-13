@@ -140,18 +140,26 @@ function detectColumns(rows: Record<string, unknown>[]): DetectedColumns {
   return { priceCol, areaCol, colonyCol, typeCol };
 }
 
+const RENTAL_KEYWORDS = ['renta', 'arrendamiento', 'local', 'alquiler', 'rento', 'se renta'];
+
+function rowContainsRental(row: Record<string, unknown>): boolean {
+  const allText = Object.values(row).map(v => String(v ?? '').toLowerCase()).join(' ');
+  return RENTAL_KEYWORDS.some(k => allText.includes(k));
+}
+
 function mapRows(rows: Record<string, unknown>[]): CleanProperty[] {
   const cols = detectColumns(rows);
   if (!cols.priceCol) {
-    // Fallback: try every row looking for any numeric > 100k
     console.warn('Auto-detect: no price column found, using best-effort fallback');
     return [];
   }
 
   const results: CleanProperty[] = [];
   for (const row of rows) {
+    // Filtro inteligente: ignorar rentas/locales por palabras clave
+    if (rowContainsRental(row)) continue;
     const price = cleanNumber(row[cols.priceCol]);
-    if (!price || price < 100000) continue; // skip rentals & non-residential below $100k
+    if (!price) continue;
     const area = cols.areaCol ? cleanNumber(row[cols.areaCol]) : 0;
     const colony = cols.colonyCol ? String(row[cols.colonyCol] ?? 'Sin colonia').trim() || 'Sin colonia' : 'Sin colonia';
     const type = cols.typeCol ? detectType(row[cols.typeCol]) : 'used';
