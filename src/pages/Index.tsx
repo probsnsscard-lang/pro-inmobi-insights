@@ -32,6 +32,7 @@ const Index = () => {
   const [municipality, setMunicipality] = useState('Metepec');
   const [constructionPct, setConstructionPct] = useState(60);
   const [clientName, setClientName] = useState('');
+  const [analystName, setAnalystName] = useState('');
 
   const terrainPct = 100 - constructionPct;
 
