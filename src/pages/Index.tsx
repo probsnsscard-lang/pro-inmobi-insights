@@ -177,7 +177,7 @@ const Index = () => {
                   <p className="text-xl font-display font-extrabold text-foreground">{fmt(estimatedTotal)}</p>
                 </div>
                 <Button
-                  onClick={() => generatePDF(result, estimatedTotal, constructionPct, clientName)}
+                  onClick={() => generatePDF(result, estimatedTotal, constructionPct, clientName, analystName)}
                   className="gradient-emerald text-primary-foreground border-0 hover:opacity-90 transition-opacity font-display font-semibold"
                 >
                   <FileDown className="w-4 h-4 mr-2" />
