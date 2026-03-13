@@ -96,12 +96,21 @@ const Index = () => {
             </select>
           </div>
           <div className="flex items-center gap-2">
+            <label className="text-sm font-display font-semibold text-foreground">Analista:</label>
+            <Input
+              value={analystName}
+              onChange={(e) => setAnalystName(e.target.value)}
+              placeholder="Ataúlfo Figón"
+              className="w-48 text-sm"
+            />
+          </div>
+          <div className="flex items-center gap-2">
             <label className="text-sm font-display font-semibold text-foreground">Cliente:</label>
             <Input
               value={clientName}
               onChange={(e) => setClientName(e.target.value)}
               placeholder="Nombre del cliente o empresa"
-              className="w-64 text-sm"
+              className="w-48 text-sm"
             />
           </div>
         </div>
