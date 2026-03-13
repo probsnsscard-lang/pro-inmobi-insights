@@ -46,7 +46,7 @@ const ColonyChart = ({ data, properties = [] }: ColonyChartProps) => {
                 <td className="py-2.5 px-3 font-medium text-foreground">
                   {item.name}
                 </td>
-                <td className="py-2.5 px-3 text-right font-display font-bold text-foreground">
+                <td className="py-2.5 px-3 text-right font-display font-bold text-foreground tabular-nums">
                   {colonyAvgPrice[item.name] ? fmt(colonyAvgPrice[item.name]) : '—'}
                 </td>
                 <td className="py-2.5 px-3 text-center">
