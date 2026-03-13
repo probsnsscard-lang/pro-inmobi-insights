@@ -8,7 +8,8 @@ export function generatePDF(
   result: AnalysisResult,
   estimatedTotal?: number,
   constructionPct: number = 60,
-  clientName: string = ''
+  clientName: string = '',
+  analystName: string = ''
 ) {
   const doc = new jsPDF('p', 'mm', 'letter');
   const W = 216;
