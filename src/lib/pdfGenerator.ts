@@ -367,7 +367,7 @@ export function generatePDF(
   doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(30, 58, 95);
-  doc.text('Análisis de Mercado Pro — Ataúlfo Figón', marginL, 270);
+  doc.text(`Análisis de Mercado Pro — ${displayAnalyst}`, marginL, 270);
   if (clientName) {
     doc.text(`Para: ${clientName}`, marginL + 70, 270);
   }
