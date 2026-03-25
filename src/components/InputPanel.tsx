@@ -11,6 +11,7 @@ interface InputPanelProps {
   onAIResult?: (result: AnalysisResult) => void;
   isProcessing: boolean;
   setIsProcessing: (v: boolean) => void;
+  subject?: SubjectProperty;
 }
 
 interface FileSlot {
