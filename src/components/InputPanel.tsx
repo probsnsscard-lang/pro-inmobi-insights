@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Zap, Play, Upload, FileSpreadsheet, X, HelpCircle, ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { PropertyData, getDemoData, AnalysisResult, analyzeProperties } from '@/lib/calculationEngine';
+import { PropertyData, SubjectProperty, getDemoData, AnalysisResult, analyzeProperties } from '@/lib/calculationEngine';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -11,6 +11,7 @@ interface InputPanelProps {
   onAIResult?: (result: AnalysisResult) => void;
   isProcessing: boolean;
   setIsProcessing: (v: boolean) => void;
+  subject?: SubjectProperty;
 }
 
 interface FileSlot {
