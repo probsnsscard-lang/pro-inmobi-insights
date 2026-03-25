@@ -7,7 +7,8 @@ import InsightsPanel from '@/components/InsightsPanel';
 import MarketSemaphore from '@/components/MarketSemaphore';
 import GaugeChart from '@/components/GaugeChart';
 import OpportunityRadar from '@/components/OpportunityRadar';
-import { PropertyData, analyzeProperties, AnalysisResult } from '@/lib/calculationEngine';
+import ValuationReport from '@/components/ValuationReport';
+import { PropertyData, SubjectProperty, analyzeProperties, AnalysisResult } from '@/lib/calculationEngine';
 import { generatePDF } from '@/lib/pdfGenerator';
 import { FileDown, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -33,13 +34,20 @@ const Index = () => {
   const [constructionPct, setConstructionPct] = useState(60);
   const [clientName, setClientName] = useState('');
   const [analystName, setAnalystName] = useState('');
+  const [subjectConstructionM2, setSubjectConstructionM2] = useState(140);
+  const [subjectTerrainM2, setSubjectTerrainM2] = useState(180);
 
   const terrainPct = 100 - constructionPct;
+
+  const subject: SubjectProperty = {
+    constructionM2: subjectConstructionM2,
+    terrainM2: subjectTerrainM2,
+  };
 
   const handleAnalyze = (data: PropertyData[]) => {
     setIsProcessing(true);
     setTimeout(() => {
-      const analysis = analyzeProperties(data);
+      const analysis = analyzeProperties(data, subject);
       analysis.municipality = municipality;
       setResult(analysis);
       setIsProcessing(false);
@@ -51,7 +59,7 @@ const Index = () => {
     setResult(aiResult);
   };
 
-  const estimatedTotal = result
+  const estimatedTotal = result?.valuation?.finalValue ?? (result
     ? (() => {
         const nc = result.newCount ?? result.newProducts.length;
         const uc = result.usedCount ?? result.usedProducts.length;
@@ -59,7 +67,7 @@ const Index = () => {
         if (total === 0) return 0;
         return Math.round((result.newAvgPrice * nc + result.usedAvgPrice * uc) / total);
       })()
-    : 0;
+    : 0);
 
   const combinedPricePerM2 = result
     ? (() => {
@@ -73,7 +81,6 @@ const Index = () => {
 
   const fmt = (n: number) => `$${n.toLocaleString('es-MX', { maximumFractionDigits: 0 })}`;
 
-  // Compute split values dynamically
   const cPct = constructionPct / 100;
   const tPct = terrainPct / 100;
 
@@ -81,7 +88,7 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-        {/* Municipality + Client row */}
+        {/* Municipality + Analyst + Client row */}
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2">
             <label className="text-sm font-display font-semibold text-foreground">Municipio:</label>
@@ -112,6 +119,35 @@ const Index = () => {
               placeholder="Nombre del cliente o empresa"
               className="w-48 text-sm"
             />
+          </div>
+        </div>
+
+        {/* Subject Property */}
+        <div className="bg-card rounded-xl card-shadow p-5 space-y-3">
+          <p className="text-xs font-display font-bold uppercase tracking-wider text-muted-foreground">
+            📐 Sujeto a Valuar — Características
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-muted-foreground">m² Construcción</label>
+              <Input
+                type="number"
+                value={subjectConstructionM2}
+                onChange={(e) => setSubjectConstructionM2(Number(e.target.value) || 0)}
+                className="text-sm font-bold"
+                min={0}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-muted-foreground">m² Terreno</label>
+              <Input
+                type="number"
+                value={subjectTerrainM2}
+                onChange={(e) => setSubjectTerrainM2(Number(e.target.value) || 0)}
+                className="text-sm font-bold"
+                min={0}
+              />
+            </div>
           </div>
         </div>
 
@@ -156,6 +192,7 @@ const Index = () => {
           onAIResult={handleAIResult}
           isProcessing={isProcessing}
           setIsProcessing={setIsProcessing}
+          subject={subject}
         />
 
         {result && (
@@ -173,11 +210,11 @@ const Index = () => {
               </div>
               <div className="flex items-center gap-3">
                 <div className="text-right">
-                  <p className="text-xs text-muted-foreground">Valor Estimado Total</p>
+                  <p className="text-xs text-muted-foreground">Opinión de Valor</p>
                   <p className="text-xl font-display font-extrabold text-foreground">{fmt(estimatedTotal)}</p>
                 </div>
                 <Button
-                  onClick={() => generatePDF(result, estimatedTotal, constructionPct, clientName, analystName)}
+                  onClick={() => generatePDF(result, estimatedTotal, constructionPct, clientName, analystName, subject)}
                   className="gradient-emerald text-primary-foreground border-0 hover:opacity-90 transition-opacity font-display font-semibold"
                 >
                   <FileDown className="w-4 h-4 mr-2" />
@@ -185,6 +222,16 @@ const Index = () => {
                 </Button>
               </div>
             </div>
+
+            {/* Valuation Report (new professional sections) */}
+            {result.valuation && (
+              <ValuationReport
+                valuation={result.valuation}
+                subjectConstructionM2={subjectConstructionM2}
+                subjectTerrainM2={subjectTerrainM2}
+                municipality={municipality}
+              />
+            )}
 
             {/* Semaphore + Gauge */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -230,13 +277,12 @@ const Index = () => {
               <InsightsPanel insights={result.insights} />
             </div>
 
-            {/* Opportunity Radar — app only */}
+            {/* Opportunity Radar */}
             <OpportunityRadar properties={[...result.newProducts, ...result.usedProducts]} />
           </>
         )}
       </main>
 
-      {/* Footer */}
       <footer className="mt-12 py-4 text-center text-xs text-muted-foreground border-t border-border">
         Análisis de Mercado Pro — por <span className="font-semibold">Ataúlfo Figón</span>
       </footer>
