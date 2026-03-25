@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import { AnalysisResult } from './calculationEngine';
+import { AnalysisResult, SubjectProperty } from './calculationEngine';
 
 const fmt = (n: number) =>
   `$${n.toLocaleString('es-MX', { maximumFractionDigits: 0 })}`;
@@ -9,7 +9,8 @@ export function generatePDF(
   estimatedTotal?: number,
   constructionPct: number = 60,
   clientName: string = '',
-  analystName: string = ''
+  analystName: string = '',
+  subject?: SubjectProperty
 ) {
   const doc = new jsPDF('p', 'mm', 'letter');
   const W = 216;
