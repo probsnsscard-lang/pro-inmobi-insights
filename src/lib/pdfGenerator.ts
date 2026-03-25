@@ -95,18 +95,66 @@ export function generatePDF(
     });
   y += 12;
 
-  // ===== 2. VALOR ESTIMADO TOTAL =====
-  doc.setFillColor(245, 250, 248);
-  doc.roundedRect(marginL, y, contentW, 14, 2, 2, 'F');
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(100, 100, 100);
-  doc.text('Valor Estimado Total (Promedio Ponderado Proporcional)', marginL + 4, y + 5);
-  doc.setFontSize(16);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(30, 58, 95);
-  doc.text(fmt(totalVal), marginL + 4, y + 12);
-  y += 20;
+  // ===== 2. OPINIÓN DE VALOR / VALUACIÓN =====
+  const v = result.valuation;
+  if (v && subject) {
+    // Características del Sujeto
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 58, 95);
+    doc.text('Características del Sujeto', marginL, y);
+    y += 5;
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(60, 60, 60);
+    doc.text(`Construcción: ${subject.constructionM2} m²   |   Terreno: ${subject.terrainM2} m²   |   Costo Constr.: ${fmt(v.constructionCostPerM2)}/m²`, marginL, y);
+    y += 7;
+
+    // Metodología
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 58, 95);
+    doc.text('Metodología (Muestra Filtrada)', marginL, y);
+    y += 5;
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(60, 60, 60);
+    const methLines = doc.splitTextToSize(v.methodology, contentW - 4);
+    doc.text(methLines, marginL, y);
+    y += methLines.length * 3.5 + 2;
+    doc.text(`Universo: ${v.totalBeforeFilter}   |   Muestra: ${v.sampleSize}   |   Outliers: ${v.outliersRemoved}   |   Prom m² Constr.: ${v.avgConstructionM2}`, marginL, y);
+    y += 7;
+
+    // Opinión de Valor Final
+    doc.setFillColor(245, 250, 248);
+    doc.roundedRect(marginL, y, contentW, 22, 2, 2, 'F');
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 100, 100);
+    doc.text('Opinión de Valor Final', marginL + 4, y + 5);
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 58, 95);
+    doc.text(fmt(v.finalValue), marginL + 4, y + 13);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 100, 100);
+    doc.text(`🏠 Construcción: ${fmt(v.estimatedConstructionValue)} (${subject.constructionM2}m² × ${fmt(v.constructionCostPerM2)})   |   🌳 Terreno: ${fmt(v.estimatedTerrainValue)} (${subject.terrainM2}m² × ${fmt(v.avgPricePerM2Terrain)})`, marginL + 4, y + 19);
+    y += 28;
+  } else {
+    // Fallback: old total value display
+    doc.setFillColor(245, 250, 248);
+    doc.roundedRect(marginL, y, contentW, 14, 2, 2, 'F');
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 100, 100);
+    doc.text('Valor Estimado Total (Promedio Ponderado Proporcional)', marginL + 4, y + 5);
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 58, 95);
+    doc.text(fmt(totalVal), marginL + 4, y + 12);
+    y += 20;
+  }
 
   // ===== 3. SEMÁFORO DE MERCADO + $/m² =====
   let semaphoreLabel = 'Estable';
