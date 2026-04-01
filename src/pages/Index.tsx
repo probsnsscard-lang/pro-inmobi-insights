@@ -10,10 +10,12 @@ import OpportunityRadar from '@/components/OpportunityRadar';
 import ValuationReport from '@/components/ValuationReport';
 import { PropertyData, SubjectProperty, analyzeProperties, AnalysisResult } from '@/lib/calculationEngine';
 import { generatePDF } from '@/lib/pdfGenerator';
-import { FileDown, BarChart3 } from 'lucide-react';
+import { generateMarketReportPDF } from '@/lib/marketReportPdf';
+import { FileDown, BarChart3, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const MUNICIPALITIES = [
   'Toluca', 'Metepec', 'Lerma', 'Ocoyoacac',
@@ -30,32 +32,52 @@ const SPLIT_PRESETS = [
 const Index = () => {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [municipality, setMunicipality] = useState('Metepec');
+  const [selectedMunicipalities, setSelectedMunicipalities] = useState<string[]>(['Metepec']);
   const [constructionPct, setConstructionPct] = useState(60);
   const [clientName, setClientName] = useState('');
   const [analystName, setAnalystName] = useState('');
   const [subjectConstructionM2, setSubjectConstructionM2] = useState(140);
   const [subjectTerrainM2, setSubjectTerrainM2] = useState(180);
+  const [subjectLocation, setSubjectLocation] = useState('');
+  const [subjectType, setSubjectType] = useState('Casa Habitación');
+  const [subjectRooms, setSubjectRooms] = useState('');
+  const [subjectParking, setSubjectParking] = useState('');
+  const [subjectExtras, setSubjectExtras] = useState('');
 
   const terrainPct = 100 - constructionPct;
+  const municipalityLabel = selectedMunicipalities.length === 1
+    ? selectedMunicipalities[0]
+    : `${selectedMunicipalities.length} municipios`;
 
   const subject: SubjectProperty = {
     constructionM2: subjectConstructionM2,
     terrainM2: subjectTerrainM2,
   };
 
+  const toggleMunicipality = (m: string) => {
+    setSelectedMunicipalities(prev =>
+      prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]
+    );
+  };
+
+  const selectAll = () => {
+    setSelectedMunicipalities(prev =>
+      prev.length === MUNICIPALITIES.length ? [] : [...MUNICIPALITIES]
+    );
+  };
+
   const handleAnalyze = (data: PropertyData[]) => {
     setIsProcessing(true);
     setTimeout(() => {
       const analysis = analyzeProperties(data, subject);
-      analysis.municipality = municipality;
+      analysis.municipality = municipalityLabel;
       setResult(analysis);
       setIsProcessing(false);
     }, 800);
   };
 
   const handleAIResult = (aiResult: AnalysisResult) => {
-    aiResult.municipality = municipality;
+    aiResult.municipality = municipalityLabel;
     setResult(aiResult);
   };
 
@@ -81,27 +103,52 @@ const Index = () => {
 
   const fmt = (n: number) => `$${n.toLocaleString('es-MX', { maximumFractionDigits: 0 })}`;
 
-  const cPct = constructionPct / 100;
-  const tPct = terrainPct / 100;
+  const subjectDetails = {
+    location: subjectLocation,
+    type: subjectType,
+    rooms: subjectRooms,
+    parking: subjectParking,
+    extras: subjectExtras,
+  };
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-        {/* Municipality + Analyst + Client row */}
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-display font-semibold text-foreground">Municipio:</label>
-            <select
-              value={municipality}
-              onChange={(e) => setMunicipality(e.target.value)}
-              className="rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-secondary/40"
-            >
-              {MUNICIPALITIES.map((m) => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
+
+        {/* Municipality Multi-Selector */}
+        <div className="bg-card rounded-xl card-shadow p-5 space-y-3">
+          <div className="flex items-center gap-2 mb-1">
+            <MapPin className="w-5 h-5 text-secondary" />
+            <h2 className="font-display font-semibold text-foreground text-lg">Zona de Influencia</h2>
           </div>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={selectAll}
+              className={`text-xs font-display font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+                selectedMunicipalities.length === MUNICIPALITIES.length
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'border-border text-muted-foreground hover:border-primary/50'
+              }`}
+            >
+              Todos
+            </button>
+            {MUNICIPALITIES.map((m) => (
+              <label key={m} className="flex items-center gap-1.5 cursor-pointer">
+                <Checkbox
+                  checked={selectedMunicipalities.includes(m)}
+                  onCheckedChange={() => toggleMunicipality(m)}
+                />
+                <span className={`text-sm font-medium transition-colors ${
+                  selectedMunicipalities.includes(m) ? 'text-foreground' : 'text-muted-foreground'
+                }`}>{m}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Analyst + Client */}
+        <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2">
             <label className="text-sm font-display font-semibold text-foreground">Analista:</label>
             <Input
@@ -125,9 +172,27 @@ const Index = () => {
         {/* Subject Property */}
         <div className="bg-card rounded-xl card-shadow p-5 space-y-3">
           <p className="text-xs font-display font-bold uppercase tracking-wider text-muted-foreground">
-            📐 Sujeto a Valuar — Características
+            📐 Características de la Propiedad (Sujeto a Valuar)
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-muted-foreground">Ubicación</label>
+              <Input
+                value={subjectLocation}
+                onChange={(e) => setSubjectLocation(e.target.value)}
+                placeholder="Ej: Col. Reforma, Metepec"
+                className="text-sm"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-muted-foreground">Tipo de Inmueble</label>
+              <Input
+                value={subjectType}
+                onChange={(e) => setSubjectType(e.target.value)}
+                placeholder="Casa Habitación"
+                className="text-sm"
+              />
+            </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-muted-foreground">m² Construcción</label>
               <Input
@@ -146,6 +211,33 @@ const Index = () => {
                 onChange={(e) => setSubjectTerrainM2(Number(e.target.value) || 0)}
                 className="text-sm font-bold"
                 min={0}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-muted-foreground">Recámaras / Baños</label>
+              <Input
+                value={subjectRooms}
+                onChange={(e) => setSubjectRooms(e.target.value)}
+                placeholder="Ej: 3 recámaras / 2 baños"
+                className="text-sm"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-muted-foreground">Estacionamiento</label>
+              <Input
+                value={subjectParking}
+                onChange={(e) => setSubjectParking(e.target.value)}
+                placeholder="Ej: 2 cajones"
+                className="text-sm"
+              />
+            </div>
+            <div className="flex flex-col gap-1 col-span-2">
+              <label className="text-xs font-medium text-muted-foreground">Extras</label>
+              <Input
+                value={subjectExtras}
+                onChange={(e) => setSubjectExtras(e.target.value)}
+                placeholder="Ej: Cisterna, cuarto de servicio"
+                className="text-sm"
               />
             </div>
           </div>
@@ -202,34 +294,44 @@ const Index = () => {
               <div className="flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-secondary" />
                 <h2 className="font-display font-semibold text-foreground text-lg">
-                  Resultados — {municipality}
+                  Resultados — {municipalityLabel}
                 </h2>
                 <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
                   {result.totalProperties} propiedades
                 </span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <div className="text-right">
                   <p className="text-xs text-muted-foreground">Opinión de Valor</p>
                   <p className="text-xl font-display font-extrabold text-foreground">{fmt(estimatedTotal)}</p>
                 </div>
                 <Button
-                  onClick={() => generatePDF(result, estimatedTotal, constructionPct, clientName, analystName, subject)}
-                  className="gradient-emerald text-primary-foreground border-0 hover:opacity-90 transition-opacity font-display font-semibold"
+                  onClick={() => generatePDF(result, estimatedTotal, constructionPct, clientName, analystName, subject, subjectDetails, municipalityLabel)}
+                  className="gradient-navy text-primary-foreground border-0 hover:opacity-90 transition-opacity font-display font-semibold"
                 >
                   <FileDown className="w-4 h-4 mr-2" />
-                  Descargar PDF
+                  PDF Individual
                 </Button>
+                {selectedMunicipalities.length > 1 && (
+                  <Button
+                    onClick={() => generateMarketReportPDF(result, selectedMunicipalities, analystName, clientName)}
+                    variant="outline"
+                    className="border-secondary text-secondary hover:bg-secondary/5 font-display font-semibold"
+                  >
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    Reporte General
+                  </Button>
+                )}
               </div>
             </div>
 
-            {/* Valuation Report (new professional sections) */}
+            {/* Valuation Report */}
             {result.valuation && (
               <ValuationReport
                 valuation={result.valuation}
                 subjectConstructionM2={subjectConstructionM2}
                 subjectTerrainM2={subjectTerrainM2}
-                municipality={municipality}
+                municipality={municipalityLabel}
               />
             )}
 
