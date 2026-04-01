@@ -278,7 +278,6 @@ const InputPanel = ({ onAnalyze, onAIResult, isProcessing, setIsProcessing }: In
     }
   };
 
-  const labels = ['Fuente 1', 'Fuente 2', 'Fuente 3'];
 
   return (
     <section className="bg-card rounded-xl card-shadow p-6 space-y-5">
@@ -287,72 +286,59 @@ const InputPanel = ({ onAnalyze, onAIResult, isProcessing, setIsProcessing }: In
         <h2 className="font-display font-semibold text-foreground text-lg">Fuentes de Datos</h2>
       </div>
 
-      {/* 3 file slots */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {slots.map((slot, i) => (
-          <div key={i} className={`rounded-xl border-2 p-4 flex flex-col items-center justify-center gap-3 min-h-[160px] transition-colors ${
-            slot.file
-              ? 'border-secondary bg-secondary/5'
-              : 'border-dashed border-border bg-muted/20 hover:border-secondary/50'
-          }`}>
-            <input
-              ref={fileRefs[i]}
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              className="hidden"
-              onChange={handleFileUpload(i)}
-            />
+      {/* Single upload button */}
+      <div className="flex flex-col items-center gap-4">
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".xlsx,.xls,.csv"
+          multiple
+          className="hidden"
+          onChange={handleFileUpload}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="lg"
+          onClick={() => fileRef.current?.click()}
+          className="w-full max-w-md h-14 border-2 border-dashed border-secondary/40 text-secondary hover:border-secondary hover:bg-secondary/5 font-display font-semibold text-base"
+        >
+          <Upload className="w-5 h-5 mr-2" />
+          Subir Archivos Excel
+        </Button>
 
-            <span className="text-xs font-display font-bold text-muted-foreground uppercase tracking-wider">
-              {labels[i]}
-            </span>
-
-            {slot.file ? (
-              <div className="flex flex-col items-center gap-2 w-full">
-                <CheckCircle2 className="w-8 h-8 text-secondary" />
-                <div className="flex items-center gap-2 text-foreground">
-                  <FileSpreadsheet className="w-4 h-4 text-secondary shrink-0" />
-                  <span className="text-sm font-medium truncate max-w-[140px]">{slot.name}</span>
-                </div>
-                <span className="text-xs font-semibold text-secondary">
-                  ✅ {slot.rows.length} propiedades detectadas
+        {/* File list */}
+        {files.length > 0 && (
+          <div className="w-full space-y-2">
+            {files.map((f, i) => (
+              <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-secondary/5 border border-secondary/20">
+                <CheckCircle2 className="w-5 h-5 text-secondary shrink-0" />
+                <FileSpreadsheet className="w-4 h-4 text-secondary shrink-0" />
+                <span className="text-sm font-medium text-foreground truncate">{f.name}</span>
+                <span className="text-xs font-semibold text-secondary ml-auto whitespace-nowrap">
+                  {f.rows.length} propiedades
                 </span>
                 <button
                   type="button"
-                  onClick={() => clearSlot(i)}
-                  className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-destructive transition-colors mt-1"
+                  onClick={() => clearFile(i)}
+                  className="text-muted-foreground hover:text-destructive transition-colors ml-1"
                 >
-                  <X className="w-3 h-3" /> Quitar
+                  <X className="w-4 h-4" />
                 </button>
               </div>
-            ) : (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => fileRefs[i].current?.click()}
-                className="border-secondary/40 text-secondary hover:border-secondary hover:bg-secondary/5 font-display font-semibold"
-              >
-                <Upload className="w-4 h-4 mr-1.5" />
-                Subir Excel
-              </Button>
-            )}
+            ))}
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/10 border border-secondary/20">
+              <FileSpreadsheet className="w-4 h-4 text-secondary" />
+              <span className="text-sm font-display font-semibold text-foreground">
+                Total: {totalClean} propiedades listas
+              </span>
+              <span className="text-xs text-muted-foreground ml-auto">
+                {files.length} archivo{files.length !== 1 ? 's' : ''}
+              </span>
+            </div>
           </div>
-        ))}
+        )}
       </div>
-
-      {/* Total badge */}
-      {totalClean > 0 && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/10 border border-secondary/20">
-          <FileSpreadsheet className="w-4 h-4 text-secondary" />
-          <span className="text-sm font-display font-semibold text-foreground">
-            Total: {totalClean} propiedades listas
-          </span>
-          <span className="text-xs text-muted-foreground ml-auto">
-            {slots.filter((s) => s.file).length} de 3 archivos
-          </span>
-        </div>
-      )}
 
       {/* Guide */}
       <button
