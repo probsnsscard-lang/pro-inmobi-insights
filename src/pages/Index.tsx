@@ -186,12 +186,23 @@ const Index = () => {
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-muted-foreground">Tipo de Inmueble</label>
-              <Input
+              <select
                 value={subjectType}
-                onChange={(e) => setSubjectType(e.target.value)}
-                placeholder="Casa Habitación"
-                className="text-sm"
-              />
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSubjectType(val);
+                  if (val === 'Terreno') {
+                    setSubjectConstructionM2(0);
+                    setConstructionPct(0);
+                  }
+                }}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="Casa Habitación">Casa Habitación</option>
+                <option value="Departamento">Departamento</option>
+                <option value="Terreno">Terreno</option>
+                <option value="Comercial">Comercial</option>
+              </select>
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-muted-foreground">m² Construcción</label>
@@ -252,12 +263,12 @@ const Index = () => {
             <span className="text-sm font-display font-bold text-primary w-28">
               🏠 {constructionPct}% Constr.
             </span>
-            <Slider
-              value={[constructionPct]}
-              onValueChange={(v) => setConstructionPct(v[0])}
-              min={10}
-              max={90}
-              step={5}
+              <Slider
+                value={[constructionPct]}
+                onValueChange={(v) => setConstructionPct(v[0])}
+                min={0}
+                max={100}
+                step={5}
               className="flex-1"
             />
             <span className="text-sm font-display font-bold text-secondary w-28 text-right">
