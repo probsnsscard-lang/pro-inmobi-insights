@@ -252,12 +252,12 @@ const Index = () => {
             <span className="text-sm font-display font-bold text-primary w-28">
               🏠 {constructionPct}% Constr.
             </span>
-            <Slider
-              value={[constructionPct]}
-              onValueChange={(v) => setConstructionPct(v[0])}
-              min={10}
-              max={90}
-              step={5}
+              <Slider
+                value={[constructionPct]}
+                onValueChange={(v) => setConstructionPct(v[0])}
+                min={0}
+                max={100}
+                step={5}
               className="flex-1"
             />
             <span className="text-sm font-display font-bold text-secondary w-28 text-right">
