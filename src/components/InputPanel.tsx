@@ -182,52 +182,45 @@ const toPropertyDataset = (rows: CleanProperty[]): PropertyData[] =>
 const EMPTY_SLOT: FileSlot = { file: null, name: '', rows: [], totalRows: 0 };
 
 const InputPanel = ({ onAnalyze, onAIResult, isProcessing, setIsProcessing }: InputPanelProps) => {
-  const [slots, setSlots] = useState<[FileSlot, FileSlot, FileSlot]>([{ ...EMPTY_SLOT }, { ...EMPTY_SLOT }, { ...EMPTY_SLOT }]);
+  const [files, setFiles] = useState<FileSlot[]>([]);
   const [showGuide, setShowGuide] = useState(false);
-  const fileRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const handleFileUpload = (index: number) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (!selectedFiles) return;
 
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const data = new Uint8Array(evt.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rawRows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-        const cleaned = mapRows(rawRows);
+    Array.from(selectedFiles).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        try {
+          const data = new Uint8Array(evt.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rawRows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+          const cleaned = mapRows(rawRows);
 
-        if (cleaned.length === 0) {
-          toast.warning(`No se detectaron columnas de precio en "${file.name}". Verifica que el archivo tenga datos numéricos.`);
-          return;
+          if (cleaned.length === 0) {
+            toast.warning(`No se detectaron columnas de precio en "${file.name}". Verifica que el archivo tenga datos numéricos.`);
+            return;
+          }
+
+          setFiles((prev) => [...prev, { file, name: file.name, rows: cleaned, totalRows: rawRows.length }]);
+          toast.success(`${cleaned.length} propiedades detectadas en "${file.name}"`);
+        } catch {
+          toast.error(`Error al leer "${file.name}".`);
         }
-
-        setSlots((prev) => {
-          const next = [...prev] as [FileSlot, FileSlot, FileSlot];
-          next[index] = { file, name: file.name, rows: cleaned, totalRows: rawRows.length };
-          return next;
-        });
-
-        toast.success(`${cleaned.length} propiedades detectadas en "${file.name}"`);
-      } catch {
-        toast.error('Error al leer el archivo.');
-      }
-    };
-    reader.readAsArrayBuffer(file);
+      };
+      reader.readAsArrayBuffer(file);
+    });
     e.target.value = '';
   };
 
-  const clearSlot = (index: number) => {
-    setSlots((prev) => {
-      const next = [...prev] as [FileSlot, FileSlot, FileSlot];
-      next[index] = { ...EMPTY_SLOT };
-      return next;
-    });
+  const clearFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const totalClean = slots.reduce((sum, s) => sum + s.rows.length, 0);
+  const totalClean = files.reduce((sum, s) => sum + s.rows.length, 0);
 
   const handleProcess = async () => {
     const allClean = slots.flatMap((s) => s.rows);
