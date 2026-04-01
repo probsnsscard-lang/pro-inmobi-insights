@@ -223,7 +223,7 @@ const InputPanel = ({ onAnalyze, onAIResult, isProcessing, setIsProcessing }: In
   const totalClean = files.reduce((sum, s) => sum + s.rows.length, 0);
 
   const handleProcess = async () => {
-    const allClean = slots.flatMap((s) => s.rows);
+    const allClean = files.flatMap((s) => s.rows);
 
     if (allClean.length === 0) {
       onAnalyze(getDemoData());
