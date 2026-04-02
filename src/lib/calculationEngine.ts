@@ -10,6 +10,7 @@ export interface PropertyData {
 export interface SubjectProperty {
   constructionM2: number;
   terrainM2: number;
+  productType: 'Casa Habitación' | 'Departamento' | 'Terreno' | 'Comercial';
   age?: number;
   colony?: string;
 }
@@ -29,6 +30,9 @@ export interface ValuationResult {
   finalValue: number;
   sampleProperties: PropertyData[];
   methodology: string;
+  // Función A result
+  marketHeartPricePerM2: number;
+  trimmedSampleSize: number;
 }
 
 export interface AnalysisResult {
@@ -53,13 +57,25 @@ export interface AnalysisResult {
   valuation?: ValuationResult;
 }
 
-function trimmedMean(values: number[]): number {
-  if (values.length === 0) return 0;
+const fmt = (n: number) =>
+  `$${n.toLocaleString('es-MX', { maximumFractionDigits: 0 })}`;
+
+/**
+ * Función A: Media Truncada 10/10
+ * Ordena $/m², elimina 10% más caro y 10% más barato, promedia el 80% restante.
+ */
+function trimmedMean1010(values: number[]): { mean: number; sampleSize: number } {
+  if (values.length === 0) return { mean: 0, sampleSize: 0 };
   const sorted = [...values].sort((a, b) => a - b);
   const trimCount = Math.floor(sorted.length * 0.1);
   const trimmed = sorted.slice(trimCount, sorted.length - trimCount);
-  if (trimmed.length === 0) return sorted[Math.floor(sorted.length / 2)];
-  return trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
+  if (trimmed.length === 0) return { mean: sorted[Math.floor(sorted.length / 2)], sampleSize: 1 };
+  const mean = trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
+  return { mean, sampleSize: trimmed.length };
+}
+
+function trimmedMean(values: number[]): number {
+  return trimmedMean1010(values).mean;
 }
 
 function removeOutliersIQR(values: number[]): number[] {
@@ -73,39 +89,29 @@ function removeOutliersIQR(values: number[]): number[] {
   return values.filter(v => v >= lower && v <= upper);
 }
 
-/**
- * Smart Filter: selects the 15-20 properties most similar in size to the subject,
- * then removes outliers by price using IQR.
- */
 function smartFilter(
   properties: PropertyData[],
   subject: SubjectProperty,
   targetCount: number = 20
 ): { filtered: PropertyData[]; outliersRemoved: number } {
-  const subjectTotalArea = subject.constructionM2 + subject.terrainM2;
-  
-  // Only use properties with valid area
   const withArea = properties.filter(p => p.area > 0);
-  
-  // Sort by similarity in area (closest to subject's construction m²)
+  const isTerrain = subject.productType === 'Terreno';
+  const referenceArea = isTerrain ? subject.terrainM2 : subject.constructionM2;
+
   const sorted = [...withArea].sort((a, b) => {
-    const diffA = Math.abs(a.area - subject.constructionM2);
-    const diffB = Math.abs(b.area - subject.constructionM2);
+    const diffA = Math.abs(a.area - referenceArea);
+    const diffB = Math.abs(b.area - referenceArea);
     return diffA - diffB;
   });
-  
-  // Take top N most similar
+
   const candidates = sorted.slice(0, Math.max(targetCount + 5, 25));
-  
-  // Remove price outliers using IQR
   const prices = candidates.map(p => p.price);
   const cleanPrices = removeOutliersIQR(prices);
   const cleanSet = new Set(cleanPrices);
-  
-  // Rebuild filtered list maintaining order
+
   const filtered: PropertyData[] = [];
   const priceUsed = new Map<number, number>();
-  
+
   for (const p of candidates) {
     if (filtered.length >= targetCount) break;
     const used = priceUsed.get(p.price) || 0;
@@ -115,33 +121,21 @@ function smartFilter(
       priceUsed.set(p.price, used + 1);
     }
   }
-  
-  // If IQR was too aggressive, just take closest by area
+
   if (filtered.length < 10 && candidates.length >= 10) {
     return { filtered: candidates.slice(0, targetCount), outliersRemoved: 0 };
   }
-  
-  return { 
-    filtered, 
-    outliersRemoved: candidates.length - filtered.length 
+
+  return {
+    filtered,
+    outliersRemoved: candidates.length - filtered.length,
   };
 }
 
-/**
- * Determines a realistic construction cost per m² based on property type.
- * Used houses: $16,000 - $19,000 MXN/m²
- * New houses: $18,000 - $24,000 MXN/m²
- */
 function getConstructionCostPerM2(properties: PropertyData[]): number {
   const usedCount = properties.filter(p => p.type === 'used').length;
   const newCount = properties.filter(p => p.type === 'new').length;
-  
-  if (usedCount >= newCount) {
-    // Predominantly used: $16,000 - $19,000
-    return 17500;
-  }
-  // Predominantly new: $18,000 - $24,000
-  return 21000;
+  return usedCount >= newCount ? 17500 : 21000;
 }
 
 export function computeValuation(
@@ -149,59 +143,75 @@ export function computeValuation(
   subject: SubjectProperty
 ): ValuationResult {
   const totalBefore = properties.length;
+  const isTerrain = subject.productType === 'Terreno';
+
+  // ── Función A: Media Truncada 10/10 sobre $/m² ──
+  const allPricesPerM2 = properties.filter(p => p.area > 0).map(p => p.price / p.area);
+  const { mean: marketHeartPricePerM2, sampleSize: trimmedSampleSize } = trimmedMean1010(allPricesPerM2);
+
+  // Smart filter for comparable selection
   const { filtered, outliersRemoved } = smartFilter(properties, subject);
-  
+
   const constructionCost = getConstructionCostPerM2(filtered);
-  
-  // Averages from filtered sample
+
   const avgConstructionM2 = filtered.length > 0
     ? filtered.reduce((s, p) => s + p.area, 0) / filtered.length
     : 0;
-  
+
   const pricesPerM2 = filtered.filter(p => p.area > 0).map(p => p.price / p.area);
   const avgPricePerM2Construction = pricesPerM2.length > 0
     ? pricesPerM2.reduce((s, v) => s + v, 0) / pricesPerM2.length
     : 0;
-  
+
   const avgTotalPrice = filtered.length > 0
     ? filtered.reduce((s, p) => s + p.price, 0) / filtered.length
     : 0;
 
-  // Valuation based on subject's construction m²
-  const estimatedConstructionValue = subject.constructionM2 * constructionCost;
-  
-  // Terrain value: derive from market data
-  // Use the average price minus average construction value to get terrain component
-  const avgConstructionValue = avgConstructionM2 * constructionCost;
-  const avgTerrainValue = Math.max(avgTotalPrice - avgConstructionValue, 0);
-  const avgTerrainM2FromSample = avgConstructionM2 > 0 ? avgConstructionM2 * 0.8 : subject.terrainM2;
-  const terrainPricePerM2 = avgTerrainM2FromSample > 0 ? avgTerrainValue / avgTerrainM2FromSample : 0;
-  
-  const estimatedTerrainValue = subject.terrainM2 * terrainPricePerM2;
-  const finalValue = Math.round(estimatedConstructionValue + estimatedTerrainValue);
+  let estimatedConstructionValue = 0;
+  let estimatedTerrainValue = 0;
+  let finalValue = 0;
 
-  const methodology = `Se seleccionaron las ${filtered.length} propiedades más similares en tamaño (m² de construcción) al sujeto de ${subject.constructionM2} m². Se eliminaron ${outliersRemoved} valores atípicos mediante el método IQR. El costo de construcción aplicado es de ${fmt(constructionCost)}/m² basado en el perfil predominante del mercado.`;
+  if (isTerrain) {
+    // ── Función B para TERRENO: $/m² del mercado × m² de terreno ──
+    estimatedConstructionValue = 0;
+    estimatedTerrainValue = Math.round(marketHeartPricePerM2 * subject.terrainM2);
+    finalValue = estimatedTerrainValue;
+  } else {
+    // ── Función B para CASA/DEPTO: lógica de construcción + terreno ──
+    estimatedConstructionValue = subject.constructionM2 * constructionCost;
+    const avgConstructionValue = avgConstructionM2 * constructionCost;
+    const avgTerrainValue = Math.max(avgTotalPrice - avgConstructionValue, 0);
+    const avgTerrainM2FromSample = avgConstructionM2 > 0 ? avgConstructionM2 * 0.8 : subject.terrainM2;
+    const terrainPricePerM2 = avgTerrainM2FromSample > 0 ? avgTerrainValue / avgTerrainM2FromSample : 0;
+    estimatedTerrainValue = Math.round(subject.terrainM2 * terrainPricePerM2);
+    finalValue = Math.round(estimatedConstructionValue + estimatedTerrainValue);
+  }
+
+  const referenceLabel = isTerrain ? 'terreno' : 'construcción';
+  const referenceM2 = isTerrain ? subject.terrainM2 : subject.constructionM2;
+  const methodology = isTerrain
+    ? `Se analizaron ${totalBefore} propiedades. Mediante la Media Truncada 10/10, se eliminó el 10% superior e inferior del $/m², obteniendo el "Corazón del Mercado" con ${trimmedSampleSize} comparables. El precio promedio de mercado es ${fmt(Math.round(marketHeartPricePerM2))}/m². El estimado se calcula como: ${fmt(Math.round(marketHeartPricePerM2))}/m² × ${subject.terrainM2} m² = ${fmt(finalValue)}.`
+    : `Se seleccionaron las ${filtered.length} propiedades más similares en tamaño (m² de ${referenceLabel}) al sujeto de ${referenceM2} m². Se eliminaron ${outliersRemoved} valores atípicos mediante el método IQR. El costo de construcción aplicado es de ${fmt(constructionCost)}/m² basado en el perfil predominante del mercado. Media Truncada 10/10: ${fmt(Math.round(marketHeartPricePerM2))}/m² (${trimmedSampleSize} comparables).`;
 
   return {
     sampleSize: filtered.length,
     totalBeforeFilter: totalBefore,
     outliersRemoved,
     avgPricePerM2Construction: Math.round(avgPricePerM2Construction),
-    avgPricePerM2Terrain: Math.round(terrainPricePerM2),
+    avgPricePerM2Terrain: Math.round(isTerrain ? marketHeartPricePerM2 : (estimatedTerrainValue / (subject.terrainM2 || 1))),
     avgTotalPrice: Math.round(avgTotalPrice),
     avgConstructionM2: Math.round(avgConstructionM2),
-    avgTerrainM2: Math.round(avgTerrainM2FromSample),
-    constructionCostPerM2: constructionCost,
+    avgTerrainM2: Math.round(isTerrain ? subject.terrainM2 : (avgConstructionM2 * 0.8)),
+    constructionCostPerM2: isTerrain ? 0 : constructionCost,
     estimatedConstructionValue: Math.round(estimatedConstructionValue),
     estimatedTerrainValue: Math.round(estimatedTerrainValue),
     finalValue,
     sampleProperties: filtered,
     methodology,
+    marketHeartPricePerM2: Math.round(marketHeartPricePerM2),
+    trimmedSampleSize,
   };
 }
-
-const fmt = (n: number) =>
-  `$${n.toLocaleString('es-MX', { maximumFractionDigits: 0 })}`;
 
 export function analyzeProperties(properties: PropertyData[], subject?: SubjectProperty): AnalysisResult {
   const newProducts = properties.filter(p => p.type === 'new');
@@ -247,13 +257,14 @@ export function analyzeProperties(properties: PropertyData[], subject?: SubjectP
   const validCount = properties.filter(p => p.price > 0 && p.area > 0).length;
   const purityFilter = Math.round((validCount / total) * 100);
 
-  insights.push(`Se analizaron ${properties.length} propiedades. Se aplicó la regla de recorte del 10% superior e inferior.`);
+  insights.push(`Se analizaron ${properties.length} propiedades. Se aplicó la Media Truncada 10/10 (se eliminó el 10% superior e inferior).`);
 
   // Compute valuation if subject is provided
   let valuation: ValuationResult | undefined;
-  if (subject && subject.constructionM2 > 0) {
+  const isTerrain = subject?.productType === 'Terreno';
+  if (subject && (isTerrain ? subject.terrainM2 > 0 : subject.constructionM2 > 0)) {
     valuation = computeValuation(properties, subject);
-    insights.unshift(`Opinión de Valor Final: ${fmt(valuation.finalValue)} — basado en ${valuation.sampleSize} comparables filtrados.`);
+    insights.unshift(`Opinión de Valor Final: ${fmt(valuation.finalValue)} — Corazón del Mercado: ${fmt(valuation.marketHeartPricePerM2)}/m² (${valuation.trimmedSampleSize} comparables).`);
   }
 
   return {

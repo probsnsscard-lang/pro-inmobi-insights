@@ -27,6 +27,7 @@ const SPLIT_PRESETS = [
   { label: '50/50', value: 50 },
   { label: '40/60', value: 40 },
   { label: '20/80', value: 20 },
+  { label: '0/100', value: 0 },
 ];
 
 const Index = () => {
@@ -39,19 +40,21 @@ const Index = () => {
   const [subjectConstructionM2, setSubjectConstructionM2] = useState(140);
   const [subjectTerrainM2, setSubjectTerrainM2] = useState(180);
   const [subjectLocation, setSubjectLocation] = useState('');
-  const [subjectType, setSubjectType] = useState('Casa Habitación');
+  const [subjectType, setSubjectType] = useState<'Casa Habitación' | 'Departamento' | 'Terreno' | 'Comercial'>('Casa Habitación');
   const [subjectRooms, setSubjectRooms] = useState('');
   const [subjectParking, setSubjectParking] = useState('');
   const [subjectExtras, setSubjectExtras] = useState('');
 
+  const isTerrain = subjectType === 'Terreno';
   const terrainPct = 100 - constructionPct;
   const municipalityLabel = selectedMunicipalities.length === 1
     ? selectedMunicipalities[0]
     : `${selectedMunicipalities.length} municipios`;
 
   const subject: SubjectProperty = {
-    constructionM2: subjectConstructionM2,
+    constructionM2: isTerrain ? 0 : subjectConstructionM2,
     terrainM2: subjectTerrainM2,
+    productType: subjectType,
   };
 
   const toggleMunicipality = (m: string) => {
@@ -79,6 +82,16 @@ const Index = () => {
   const handleAIResult = (aiResult: AnalysisResult) => {
     aiResult.municipality = municipalityLabel;
     setResult(aiResult);
+  };
+
+  const handleTypeChange = (val: 'Casa Habitación' | 'Departamento' | 'Terreno' | 'Comercial') => {
+    setSubjectType(val);
+    if (val === 'Terreno') {
+      setSubjectConstructionM2(0);
+      setConstructionPct(0);
+    } else if (constructionPct === 0) {
+      setConstructionPct(60);
+    }
   };
 
   const estimatedTotal = result?.valuation?.finalValue ?? (result
@@ -188,14 +201,7 @@ const Index = () => {
               <label className="text-xs font-medium text-muted-foreground">Tipo de Inmueble</label>
               <select
                 value={subjectType}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setSubjectType(val);
-                  if (val === 'Terreno') {
-                    setSubjectConstructionM2(0);
-                    setConstructionPct(0);
-                  }
-                }}
+                onChange={(e) => handleTypeChange(e.target.value as any)}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <option value="Casa Habitación">Casa Habitación</option>
@@ -204,16 +210,21 @@ const Index = () => {
                 <option value="Comercial">Comercial</option>
               </select>
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-muted-foreground">m² Construcción</label>
-              <Input
-                type="number"
-                value={subjectConstructionM2}
-                onChange={(e) => setSubjectConstructionM2(Number(e.target.value) || 0)}
-                className="text-sm font-bold"
-                min={0}
-              />
-            </div>
+
+            {/* Conditionally show construction m² only for non-terrain */}
+            {!isTerrain && (
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-muted-foreground">m² Construcción</label>
+                <Input
+                  type="number"
+                  value={subjectConstructionM2}
+                  onChange={(e) => setSubjectConstructionM2(Number(e.target.value) || 0)}
+                  className="text-sm font-bold"
+                  min={0}
+                />
+              </div>
+            )}
+
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-muted-foreground">m² Terreno</label>
               <Input
@@ -224,71 +235,80 @@ const Index = () => {
                 min={0}
               />
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-muted-foreground">Recámaras / Baños</label>
-              <Input
-                value={subjectRooms}
-                onChange={(e) => setSubjectRooms(e.target.value)}
-                placeholder="Ej: 3 recámaras / 2 baños"
-                className="text-sm"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-muted-foreground">Estacionamiento</label>
-              <Input
-                value={subjectParking}
-                onChange={(e) => setSubjectParking(e.target.value)}
-                placeholder="Ej: 2 cajones"
-                className="text-sm"
-              />
-            </div>
-            <div className="flex flex-col gap-1 col-span-2">
+
+            {/* Conditionally show rooms/parking only for non-terrain */}
+            {!isTerrain && (
+              <>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-muted-foreground">Recámaras / Baños</label>
+                  <Input
+                    value={subjectRooms}
+                    onChange={(e) => setSubjectRooms(e.target.value)}
+                    placeholder="Ej: 3 recámaras / 2 baños"
+                    className="text-sm"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-muted-foreground">Estacionamiento</label>
+                  <Input
+                    value={subjectParking}
+                    onChange={(e) => setSubjectParking(e.target.value)}
+                    placeholder="Ej: 2 cajones"
+                    className="text-sm"
+                  />
+                </div>
+              </>
+            )}
+
+            <div className={`flex flex-col gap-1 ${isTerrain ? '' : 'col-span-2'}`}>
               <label className="text-xs font-medium text-muted-foreground">Extras</label>
               <Input
                 value={subjectExtras}
                 onChange={(e) => setSubjectExtras(e.target.value)}
-                placeholder="Ej: Cisterna, cuarto de servicio"
+                placeholder={isTerrain ? 'Ej: Uso de suelo, servicios' : 'Ej: Cisterna, cuarto de servicio'}
                 className="text-sm"
               />
             </div>
           </div>
         </div>
 
-        {/* Distribution Slider */}
-        <div className="bg-card rounded-xl card-shadow p-5 space-y-3">
-          <p className="text-xs font-display font-bold uppercase tracking-wider text-muted-foreground">
-            Distribución de Valor — Construcción / Terreno
-          </p>
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-display font-bold text-primary w-28">
-              🏠 {constructionPct}% Constr.
-            </span>
+        {/* Distribution Slider — hidden for Terreno (always 0/100) */}
+        {!isTerrain && (
+          <div className="bg-card rounded-xl card-shadow p-5 space-y-3">
+            <p className="text-xs font-display font-bold uppercase tracking-wider text-muted-foreground">
+              Distribución de Valor — Construcción / Terreno
+            </p>
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-display font-bold text-primary w-28">
+                🏠 {constructionPct}% Constr.
+              </span>
               <Slider
                 value={[constructionPct]}
                 onValueChange={(v) => setConstructionPct(v[0])}
                 min={0}
                 max={100}
                 step={5}
-              className="flex-1"
-            />
-            <span className="text-sm font-display font-bold text-secondary w-28 text-right">
-              🌳 {terrainPct}% Terreno
-            </span>
+                className="flex-1"
+              />
+              <span className="text-sm font-display font-bold text-secondary w-28 text-right">
+                🌳 {terrainPct}% Terreno
+              </span>
+            </div>
+            <div className="flex gap-2">
+              {SPLIT_PRESETS.map((p) => (
+                <Button
+                  key={p.label}
+                  variant={constructionPct === p.value ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setConstructionPct(p.value)}
+                  className="text-xs font-display font-semibold"
+                >
+                  {p.label}
+                </Button>
+              ))}
+            </div>
           </div>
-          <div className="flex gap-2">
-            {SPLIT_PRESETS.map((p) => (
-              <Button
-                key={p.label}
-                variant={constructionPct === p.value ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setConstructionPct(p.value)}
-                className="text-xs font-display font-semibold"
-              >
-                {p.label}
-              </Button>
-            ))}
-          </div>
-        </div>
+        )}
 
         <InputPanel
           onAnalyze={handleAnalyze}
@@ -310,10 +330,17 @@ const Index = () => {
                 <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
                   {result.totalProperties} propiedades
                 </span>
+                {result.valuation && (
+                  <span className="text-xs bg-secondary/10 text-secondary px-2 py-0.5 rounded-full">
+                    Corazón del Mercado: {fmt(result.valuation.marketHeartPricePerM2)}/m²
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="text-right">
-                  <p className="text-xs text-muted-foreground">Opinión de Valor</p>
+                  <p className="text-xs text-muted-foreground">
+                    {isTerrain ? 'Estimado de Valor de Predio' : 'Opinión de Valor'}
+                  </p>
                   <p className="text-xl font-display font-extrabold text-foreground">{fmt(estimatedTotal)}</p>
                 </div>
                 <Button
@@ -340,9 +367,10 @@ const Index = () => {
             {result.valuation && (
               <ValuationReport
                 valuation={result.valuation}
-                subjectConstructionM2={subjectConstructionM2}
+                subjectConstructionM2={isTerrain ? 0 : subjectConstructionM2}
                 subjectTerrainM2={subjectTerrainM2}
                 municipality={municipalityLabel}
+                isTerrain={isTerrain}
               />
             )}
 
@@ -355,12 +383,12 @@ const Index = () => {
                 usedCount={result.usedCount ?? result.usedProducts.length}
               />
               <GaugeChart
-                value={result.newAvgPricePerM2 || combinedPricePerM2}
-                label="$/m² Producto Nuevo"
+                value={result.valuation?.marketHeartPricePerM2 || combinedPricePerM2}
+                label={isTerrain ? '$/m² Terreno (Corazón)' : '$/m² Producto Nuevo'}
               />
               <GaugeChart
                 value={result.usedAvgPricePerM2 || combinedPricePerM2}
-                label="$/m² Producto Usado"
+                label={isTerrain ? '$/m² Promedio General' : '$/m² Producto Usado'}
               />
             </div>
 
@@ -371,7 +399,7 @@ const Index = () => {
                 type="new"
                 avgPrice={result.newAvgPrice}
                 avgPricePerM2={result.newAvgPricePerM2}
-                constructionPct={constructionPct}
+                constructionPct={isTerrain ? 0 : constructionPct}
                 count={result.newCount ?? result.newProducts.length}
               />
               <ProductCard
@@ -379,7 +407,7 @@ const Index = () => {
                 type="used"
                 avgPrice={result.usedAvgPrice}
                 avgPricePerM2={result.usedAvgPricePerM2}
-                constructionPct={constructionPct}
+                constructionPct={isTerrain ? 0 : constructionPct}
                 count={result.usedCount ?? result.usedProducts.length}
               />
             </div>
