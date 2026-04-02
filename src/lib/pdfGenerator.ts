@@ -45,28 +45,19 @@ export function generatePDF(
   const dateStr = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
   const muni = municipalityLabel || result.municipality || 'Zona Analizada';
 
-  const totalVal = estimatedTotal ?? (() => {
+  const isTerrain = subject?.productType === 'Terreno';
+  const v = result.valuation;
+
+  const totalVal = estimatedTotal ?? v?.finalValue ?? (() => {
     const t = nc + uc;
     if (t === 0) return 0;
     return Math.round((result.newAvgPrice * nc + result.usedAvgPrice * uc) / t);
   })();
 
-  // Helper: draw a table row
-  const drawTableRow = (cols: { text: string; width: number; bold?: boolean; align?: string }[], yPos: number, bgColor?: [number, number, number], textColor?: [number, number, number], fontSize: number = 8) => {
-    if (bgColor) {
-      doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
-      doc.rect(marginL, yPos, contentW, 7, 'F');
-    }
-    doc.setFontSize(fontSize);
-    doc.setTextColor(...(textColor || textDark));
-    let x = marginL + 2;
-    cols.forEach(col => {
-      doc.setFont('helvetica', col.bold ? 'bold' : 'normal');
-      doc.text(col.text, x, yPos + 5);
-      x += col.width;
-    });
-    return yPos + 7;
-  };
+  // Dynamic title based on product type
+  const reportTitle = isTerrain
+    ? 'ESTIMADO DE VALOR DE PREDIO'
+    : 'ESTIMADO DE VALOR DE CASA HABITACIÓN';
 
   // ======== PAGE 1 ========
 
@@ -74,10 +65,10 @@ export function generatePDF(
   doc.setFillColor(...navyDark);
   doc.rect(0, 0, W, 32, 'F');
 
-  doc.setFontSize(20);
+  doc.setFontSize(18);
   doc.setTextColor(...white);
   doc.setFont('helvetica', 'bold');
-  doc.text('ESTIMADO DE VALOR DE MERCADO', W / 2, 14, { align: 'center' });
+  doc.text(reportTitle, W / 2, 14, { align: 'center' });
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -92,16 +83,26 @@ export function generatePDF(
   doc.text('■ Características de la Propiedad', marginL, y);
   y += 7;
 
-  // Property characteristics table
   const propRows: [string, string][] = [
     ['Ubicación', subjectDetails?.location || muni + ', Estado de México'],
     ['Tipo', subjectDetails?.type || 'Casa Habitación'],
-    ['Recámaras / Baños', subjectDetails?.rooms || '—'],
-    ['Estacionamiento', subjectDetails?.parking || '—'],
-    ['Extras', subjectDetails?.extras || '—'],
-    ['Superficie de terreno', `${subject?.terrainM2 || 0} m²`],
-    ['Superficie de construcción', `${subject?.constructionM2 || 0} m²`],
   ];
+
+  if (!isTerrain) {
+    propRows.push(
+      ['Recámaras / Baños', subjectDetails?.rooms || '—'],
+      ['Estacionamiento', subjectDetails?.parking || '—'],
+      ['Superficie de construcción', `${subject?.constructionM2 || 0} m²`],
+    );
+  }
+
+  propRows.push(
+    ['Superficie de terreno', `${subject?.terrainM2 || 0} m²`],
+  );
+
+  if (subjectDetails?.extras) {
+    propRows.push(['Extras', subjectDetails.extras]);
+  }
 
   // Header
   doc.setFillColor(...navy);
@@ -128,22 +129,19 @@ export function generatePDF(
     y += 7;
   });
 
-  // Border
   doc.setDrawColor(...grayBorder);
   doc.setLineWidth(0.3);
   doc.rect(marginL, y - propRows.length * 7 - 7, contentW, (propRows.length + 1) * 7);
-
   y += 8;
 
   // ── Block 2: Metodología de Valuación ──
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...navyDark);
-  doc.text('■ Metodología de Valuación', marginL, y);
+  doc.text(isTerrain ? '■ Metodología: Media Truncada 10/10' : '■ Metodología de Valuación', marginL, y);
   y += 6;
 
-  const v = result.valuation;
-  const methodText = v?.methodology || `Se consultaron múltiples fuentes inmobiliarias, filtrando exclusivamente casas habitación en la zona de ${muni}. Se eliminaron registros duplicados y propiedades de uso no habitacional. La muestra final consta de ${result.totalProperties} comparables.`;
+  const methodText = v?.methodology || `Se consultaron múltiples fuentes inmobiliarias, filtrando exclusivamente propiedades en la zona de ${muni}. La muestra final consta de ${result.totalProperties} comparables.`;
 
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
@@ -152,7 +150,7 @@ export function generatePDF(
   doc.text(methLines, marginL, y);
   y += methLines.length * 3.8 + 4;
 
-  // ── Block 2b: Estadísticas del Mercado Comparable ──
+  // ── Block 2b: Estadísticas del Mercado ──
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...navyDark);
@@ -165,13 +163,15 @@ export function generatePDF(
 
   const statsRows: [string, string][] = [
     ['Propiedades consultadas (brutas)', `${result.totalProperties}`],
-    ['Comparables únicos (deduplicados)', `${v?.sampleSize ?? result.totalProperties}`],
+    [isTerrain ? 'Muestra truncada (80% central)' : 'Comparables filtrados', `${v?.trimmedSampleSize ?? v?.sampleSize ?? result.totalProperties}`],
+    [isTerrain ? '$/m² Corazón del Mercado' : 'Precio promedio por m² (construcción)', `${fmt(v?.marketHeartPricePerM2 ?? v?.avgPricePerM2Construction ?? combinedPricePerM2)} MXN/m²`],
     ['Precio promedio de mercado', `${fmt(v?.avgTotalPrice ?? totalVal)} MXN`],
-    ['Superficie promedio de construcción', `${v?.avgConstructionM2 ?? '—'} m²`],
-    ['Precio promedio por m² (construcción)', `${fmt(v?.avgPricePerM2Construction ?? combinedPricePerM2)} MXN/m²`],
   ];
 
-  // Stats table header
+  if (!isTerrain) {
+    statsRows.push(['Superficie promedio de construcción', `${v?.avgConstructionM2 ?? '—'} m²`]);
+  }
+
   doc.setFillColor(...navy);
   doc.rect(marginL, y, contentW, 7, 'F');
   doc.setFontSize(8);
@@ -202,7 +202,7 @@ export function generatePDF(
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...navyDark);
-  doc.text('■ Estimado de Valor', marginL, y);
+  doc.text(isTerrain ? '■ Estimado de Valor de Predio' : '■ Estimado de Valor', marginL, y);
   y += 6;
 
   // Big value banner
@@ -211,55 +211,64 @@ export function generatePDF(
   doc.setFontSize(10);
   doc.setTextColor(...white);
   doc.setFont('helvetica', 'normal');
-  doc.text('VALOR ESTIMADO DE MERCADO', W / 2, y + 7, { align: 'center' });
+  doc.text(isTerrain ? 'VALOR ESTIMADO DEL PREDIO' : 'VALOR ESTIMADO DE MERCADO', W / 2, y + 7, { align: 'center' });
   doc.setFontSize(22);
   doc.setFont('helvetica', 'bold');
   doc.text(`${fmt(v?.finalValue ?? totalVal)} MXN`, W / 2, y + 18, { align: 'center' });
   y += 28;
 
-  // Breakdown table
-  const breakdownHeader = [
-    { text: 'Componente', width: contentW * 0.35 },
-    { text: '%', width: contentW * 0.15 },
-    { text: 'm²', width: contentW * 0.2 },
-    { text: 'Valor Estimado', width: contentW * 0.3 },
-  ];
+  if (isTerrain) {
+    // Simple terrain breakdown
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...textDark);
+    doc.text(`Cálculo: ${fmt(v?.marketHeartPricePerM2 ?? 0)}/m² × ${subject?.terrainM2 || 0} m² = ${fmt(v?.finalValue ?? totalVal)}`, marginL, y);
+    y += 8;
+  } else {
+    // Breakdown table for casa/depto
+    const breakdownHeader = [
+      { text: 'Componente', width: contentW * 0.35 },
+      { text: '%', width: contentW * 0.15 },
+      { text: 'm²', width: contentW * 0.2 },
+      { text: 'Valor Estimado', width: contentW * 0.3 },
+    ];
 
-  doc.setFillColor(...navy);
-  doc.rect(marginL, y, contentW, 7, 'F');
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...white);
-  let x = marginL + 2;
-  breakdownHeader.forEach(h => { doc.text(h.text, x, y + 5); x += h.width; });
-  y += 7;
-
-  const cVal = v?.estimatedConstructionValue ?? Math.round((v?.finalValue ?? totalVal) * (constructionPct / 100));
-  const tVal = v?.estimatedTerrainValue ?? Math.round((v?.finalValue ?? totalVal) * (terrainPct / 100));
-
-  const breakdownRows = [
-    ['Construcción', `${constructionPct}%`, `${subject?.constructionM2 || 0} m²`, `${fmt(cVal)} MXN`],
-    ['Terreno', `${terrainPct}%`, `${subject?.terrainM2 || 0} m²`, `${fmt(tVal)} MXN`],
-    ['TOTAL', '100%', '—', `${fmt(v?.finalValue ?? totalVal)} MXN`],
-  ];
-
-  breakdownRows.forEach((row, i) => {
-    const bg = i === 2 ? grayBg : white;
-    doc.setFillColor(...bg);
+    doc.setFillColor(...navy);
     doc.rect(marginL, y, contentW, 7, 'F');
     doc.setFontSize(8);
-    doc.setFont('helvetica', i === 2 ? 'bold' : 'normal');
-    doc.setTextColor(...textDark);
-    let rx = marginL + 2;
-    row.forEach((cell, ci) => {
-      doc.text(cell, rx, y + 5);
-      rx += breakdownHeader[ci].width;
-    });
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...white);
+    let x = marginL + 2;
+    breakdownHeader.forEach(h => { doc.text(h.text, x, y + 5); x += h.width; });
     y += 7;
-  });
 
-  doc.setDrawColor(...grayBorder);
-  doc.rect(marginL, y - 4 * 7, contentW, 4 * 7);
+    const cVal = v?.estimatedConstructionValue ?? Math.round((v?.finalValue ?? totalVal) * (constructionPct / 100));
+    const tVal = v?.estimatedTerrainValue ?? Math.round((v?.finalValue ?? totalVal) * (terrainPct / 100));
+
+    const breakdownRows = [
+      ['Construcción', `${constructionPct}%`, `${subject?.constructionM2 || 0} m²`, `${fmt(cVal)} MXN`],
+      ['Terreno', `${terrainPct}%`, `${subject?.terrainM2 || 0} m²`, `${fmt(tVal)} MXN`],
+      ['TOTAL', '100%', '—', `${fmt(v?.finalValue ?? totalVal)} MXN`],
+    ];
+
+    breakdownRows.forEach((row, i) => {
+      const bg = i === 2 ? grayBg : white;
+      doc.setFillColor(...bg);
+      doc.rect(marginL, y, contentW, 7, 'F');
+      doc.setFontSize(8);
+      doc.setFont('helvetica', i === 2 ? 'bold' : 'normal');
+      doc.setTextColor(...textDark);
+      let rx = marginL + 2;
+      row.forEach((cell, ci) => {
+        doc.text(cell, rx, y + 5);
+        rx += breakdownHeader[ci].width;
+      });
+      y += 7;
+    });
+
+    doc.setDrawColor(...grayBorder);
+    doc.rect(marginL, y - 4 * 7, contentW, 4 * 7);
+  }
 
   // ======== PAGE 2 ========
   doc.addPage();
@@ -273,14 +282,15 @@ export function generatePDF(
   y += 7;
 
   const compColWidths = [8, contentW * 0.12, contentW * 0.38, 18, contentW * 0.18, contentW * 0.14];
-  const compHeaders = ['#', 'Fuente', 'Descripción', 'm² C.', 'Precio', '$/m²'];
+  const areaLabel = isTerrain ? 'm² T.' : 'm² C.';
+  const compHeaders = ['#', 'Fuente', 'Descripción', areaLabel, 'Precio', '$/m²'];
 
   doc.setFillColor(...navy);
   doc.rect(marginL, y, contentW, 7, 'F');
   doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...white);
-  x = marginL + 1;
+  let x = marginL + 1;
   compHeaders.forEach((h, i) => { doc.text(h, x, y + 5); x += compColWidths[i]; });
   y += 7;
 
@@ -338,5 +348,6 @@ export function generatePDF(
   doc.setTextColor(...textMuted);
   doc.text(`Reporte generado el ${dateStr} | Analista: ${displayAnalyst}${clientName ? ` | Cliente: ${clientName}` : ''}`, W / 2, H - 10, { align: 'center' });
 
-  doc.save(`EstimadoValor_${muni.replace(/\s/g, '_')}.pdf`);
+  const filePrefix = isTerrain ? 'EstimadoPredio' : 'EstimadoValor';
+  doc.save(`${filePrefix}_${muni.replace(/\s/g, '_')}.pdf`);
 }
