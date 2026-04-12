@@ -15,6 +15,52 @@ const fmt = (n: number) =>
 const ValuationReport = ({ valuation, subjectConstructionM2, subjectTerrainM2, municipality, isTerrain }: ValuationReportProps) => {
   return (
     <div className="space-y-5">
+      {/* 0. VALOR COMERCIAL ESTIMADO — top of report */}
+      <div className="bg-card rounded-xl card-shadow overflow-hidden">
+        <div className="gradient-emerald px-5 py-3 flex items-center gap-2">
+          <Target className="w-5 h-5 text-primary-foreground" />
+          <h3 className="font-display font-bold text-primary-foreground">
+            VALOR COMERCIAL ESTIMADO (Basado en Corazón de Mercado)
+          </h3>
+        </div>
+        <div className="p-5 space-y-4">
+          <div className="text-center py-3">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-2">
+              {isTerrain ? 'Valor Estimado del Predio' : 'Valor de Mercado Estimado'}
+            </p>
+            <p className="text-5xl font-display font-extrabold text-foreground">{fmt(valuation.finalValue)}</p>
+          </div>
+
+          {isTerrain ? (
+            <div className="flex items-start gap-2 bg-secondary/10 rounded-lg p-4 border border-secondary/20">
+              <MapPin className="w-5 h-5 text-secondary mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-display font-bold text-foreground mb-1">Cálculo del Predio</p>
+                <p className="text-sm text-muted-foreground">
+                  {fmt(valuation.marketHeartPricePerM2)}/m² × {subjectTerrainM2} m² = <span className="font-bold text-foreground">{fmt(valuation.finalValue)}</span>
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  El $/m² se obtuvo mediante la Media Truncada 10/10: se eliminó el 10% más caro y el 10% más barato del mercado, promediando el 80% central.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-3">
+              <div className="flex-1 bg-primary/10 rounded-lg p-4 text-center border border-primary/20">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">🏠 Valor Construcción</p>
+                <p className="text-lg font-display font-extrabold text-primary">{fmt(valuation.estimatedConstructionValue)}</p>
+                <p className="text-[10px] text-muted-foreground mt-1">{subjectConstructionM2} m² × {fmt(valuation.constructionCostPerM2)}</p>
+              </div>
+              <div className="flex-1 bg-secondary/10 rounded-lg p-4 text-center border border-secondary/20">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">🌳 Valor Terreno</p>
+                <p className="text-lg font-display font-extrabold text-secondary">{fmt(valuation.estimatedTerrainValue)}</p>
+                <p className="text-[10px] text-muted-foreground mt-1">{subjectTerrainM2} m² × {fmt(valuation.avgPricePerM2Terrain)}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* 1. Características del Sujeto */}
       <div className="bg-card rounded-xl card-shadow overflow-hidden">
         <div className="gradient-navy px-5 py-3 flex items-center gap-2">
@@ -100,61 +146,19 @@ const ValuationReport = ({ valuation, subjectConstructionM2, subjectTerrainM2, m
         </div>
       </div>
 
-      {/* 3. Opinión de Valor Final */}
-      <div className="bg-card rounded-xl card-shadow overflow-hidden">
-        <div className="gradient-emerald px-5 py-3 flex items-center gap-2">
-          <Target className="w-5 h-5 text-primary-foreground" />
-          <h3 className="font-display font-bold text-primary-foreground">
-            {isTerrain ? 'Estimado de Valor de Predio' : 'Opinión de Valor Final'}
-          </h3>
-        </div>
-        <div className="p-5 space-y-4">
-          <div className="text-center py-3">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-2">
-              {isTerrain ? 'Valor Estimado del Predio' : 'Valor de Mercado Estimado'}
+      {/* Note block for non-terrain */}
+      {!isTerrain && (
+        <div className="bg-card rounded-xl card-shadow overflow-hidden p-5">
+          <div className="flex items-start gap-2 bg-muted/30 rounded-lg p-3 border border-border">
+            <FileCheck className="w-4 h-4 text-secondary mt-0.5 shrink-0" />
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Cálculo basado en el promedio de m² de construcción de la muestra filtrada ({valuation.avgConstructionM2} m²), 
+              aplicando un costo de construcción de {fmt(valuation.constructionCostPerM2)}/m² y un valor de terreno 
+              derivado del mercado de {fmt(valuation.avgPricePerM2Terrain)}/m².
             </p>
-            <p className="text-5xl font-display font-extrabold text-foreground">{fmt(valuation.finalValue)}</p>
           </div>
-
-          {isTerrain ? (
-            <div className="flex items-start gap-2 bg-secondary/10 rounded-lg p-4 border border-secondary/20">
-              <MapPin className="w-5 h-5 text-secondary mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-display font-bold text-foreground mb-1">Cálculo del Predio</p>
-                <p className="text-sm text-muted-foreground">
-                  {fmt(valuation.marketHeartPricePerM2)}/m² × {subjectTerrainM2} m² = <span className="font-bold text-foreground">{fmt(valuation.finalValue)}</span>
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  El $/m² se obtuvo mediante la Media Truncada 10/10: se eliminó el 10% más caro y el 10% más barato del mercado, promediando el 80% central.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="flex gap-3">
-                <div className="flex-1 bg-primary/10 rounded-lg p-4 text-center border border-primary/20">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">🏠 Valor Construcción</p>
-                  <p className="text-lg font-display font-extrabold text-primary">{fmt(valuation.estimatedConstructionValue)}</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">{subjectConstructionM2} m² × {fmt(valuation.constructionCostPerM2)}</p>
-                </div>
-                <div className="flex-1 bg-secondary/10 rounded-lg p-4 text-center border border-secondary/20">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">🌳 Valor Terreno</p>
-                  <p className="text-lg font-display font-extrabold text-secondary">{fmt(valuation.estimatedTerrainValue)}</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">{subjectTerrainM2} m² × {fmt(valuation.avgPricePerM2Terrain)}</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2 bg-muted/30 rounded-lg p-3 border border-border">
-                <FileCheck className="w-4 h-4 text-secondary mt-0.5 shrink-0" />
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Cálculo basado en el promedio de m² de construcción de la muestra filtrada ({valuation.avgConstructionM2} m²), 
-                  aplicando un costo de construcción de {fmt(valuation.constructionCostPerM2)}/m² y un valor de terreno 
-                  derivado del mercado de {fmt(valuation.avgPricePerM2Terrain)}/m².
-                </p>
-              </div>
-            </>
-          )}
         </div>
-      </div>
+      )}
     </div>
   );
 };

@@ -37,8 +37,8 @@ const Index = () => {
   const [constructionPct, setConstructionPct] = useState(60);
   const [clientName, setClientName] = useState('');
   const [analystName, setAnalystName] = useState('');
-  const [subjectConstructionM2, setSubjectConstructionM2] = useState(140);
-  const [subjectTerrainM2, setSubjectTerrainM2] = useState(180);
+  const [subjectConstructionM2, setSubjectConstructionM2] = useState(0);
+  const [subjectTerrainM2, setSubjectTerrainM2] = useState(0);
   const [subjectLocation, setSubjectLocation] = useState('');
   const [subjectType, setSubjectType] = useState<'Casa Habitación' | 'Departamento' | 'Terreno' | 'Comercial'>('Casa Habitación');
   const [subjectRooms, setSubjectRooms] = useState('');
@@ -217,8 +217,9 @@ const Index = () => {
                 <label className="text-xs font-medium text-muted-foreground">m² Construcción</label>
                 <Input
                   type="number"
-                  value={subjectConstructionM2}
+                  value={subjectConstructionM2 || ''}
                   onChange={(e) => setSubjectConstructionM2(Number(e.target.value) || 0)}
+                  placeholder="Ej: 120"
                   className="text-sm font-bold"
                   min={0}
                 />
@@ -229,8 +230,9 @@ const Index = () => {
               <label className="text-xs font-medium text-muted-foreground">m² Terreno</label>
               <Input
                 type="number"
-                value={subjectTerrainM2}
+                value={subjectTerrainM2 || ''}
                 onChange={(e) => setSubjectTerrainM2(Number(e.target.value) || 0)}
+                placeholder="Ej: 160"
                 className="text-sm font-bold"
                 min={0}
               />
@@ -338,8 +340,8 @@ const Index = () => {
               </div>
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="text-right">
-                  <p className="text-xs text-muted-foreground">
-                    {isTerrain ? 'Estimado de Valor de Predio' : 'Opinión de Valor'}
+                <p className="text-xs text-muted-foreground">
+                    VALOR COMERCIAL ESTIMADO
                   </p>
                   <p className="text-xl font-display font-extrabold text-foreground">{fmt(estimatedTotal)}</p>
                 </div>
