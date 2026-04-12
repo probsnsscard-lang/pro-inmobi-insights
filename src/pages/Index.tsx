@@ -217,8 +217,9 @@ const Index = () => {
                 <label className="text-xs font-medium text-muted-foreground">m² Construcción</label>
                 <Input
                   type="number"
-                  value={subjectConstructionM2}
+                  value={subjectConstructionM2 || ''}
                   onChange={(e) => setSubjectConstructionM2(Number(e.target.value) || 0)}
+                  placeholder="Ej: 120"
                   className="text-sm font-bold"
                   min={0}
                 />
@@ -229,8 +230,9 @@ const Index = () => {
               <label className="text-xs font-medium text-muted-foreground">m² Terreno</label>
               <Input
                 type="number"
-                value={subjectTerrainM2}
+                value={subjectTerrainM2 || ''}
                 onChange={(e) => setSubjectTerrainM2(Number(e.target.value) || 0)}
+                placeholder="Ej: 160"
                 className="text-sm font-bold"
                 min={0}
               />
