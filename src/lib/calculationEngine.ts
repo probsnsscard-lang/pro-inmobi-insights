@@ -261,8 +261,7 @@ export function analyzeProperties(properties: PropertyData[], subject?: SubjectP
 
   // Compute valuation if subject is provided
   let valuation: ValuationResult | undefined;
-  const isTerrain = subject?.productType === 'Terreno';
-  if (subject && (isTerrain ? subject.terrainM2 > 0 : subject.constructionM2 > 0)) {
+  if (subject) {
     valuation = computeValuation(properties, subject);
     insights.unshift(`Opinión de Valor Final: ${fmt(valuation.finalValue)} — Corazón del Mercado: ${fmt(valuation.marketHeartPricePerM2)}/m² (${valuation.trimmedSampleSize} comparables).`);
   }
