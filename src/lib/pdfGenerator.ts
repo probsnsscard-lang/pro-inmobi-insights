@@ -48,11 +48,7 @@ export function generatePDF(
   const isTerrain = subject?.productType === 'Terreno';
   const v = result.valuation;
 
-  const totalVal = estimatedTotal ?? v?.finalValue ?? (() => {
-    const t = nc + uc;
-    if (t === 0) return 0;
-    return Math.round((result.newAvgPrice * nc + result.usedAvgPrice * uc) / t);
-  })();
+  const totalVal = estimatedTotal ?? v?.finalValue ?? 0;
 
   // Dynamic title based on product type
   const reportTitle = isTerrain
