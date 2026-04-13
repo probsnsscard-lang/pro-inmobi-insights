@@ -94,8 +94,10 @@ const Index = () => {
     }
   };
 
-  // Valor estimado = valuation.finalValue si existe, de lo contrario $0
-  const estimatedTotal = result?.valuation?.finalValue ?? 0;
+  // Valor estimado = precio_m2 × metros del usuario. Si no hay metros → $0
+  const marketPricePerM2 = result?.valuation?.marketHeartPricePerM2 ?? 0;
+  const userM2 = isTerrain ? subjectTerrainM2 : subjectConstructionM2;
+  const estimatedTotal = userM2 > 0 ? Math.round(marketPricePerM2 * userM2) : 0;
 
   const combinedPricePerM2 = result
     ? (() => {
@@ -339,7 +341,13 @@ const Index = () => {
                   <p className="text-xl font-display font-extrabold text-foreground">{fmt(estimatedTotal)}</p>
                 </div>
                 <Button
-                  onClick={() => generatePDF(result, estimatedTotal, constructionPct, clientName, analystName, subject, subjectDetails, municipalityLabel)}
+                  onClick={() => {
+                    if (userM2 <= 0) {
+                      alert(isTerrain ? 'Ingresa los m² de terreno antes de generar el reporte.' : 'Ingresa los m² de construcción antes de generar el reporte.');
+                      return;
+                    }
+                    generatePDF(result, estimatedTotal, constructionPct, clientName, analystName, subject, subjectDetails, municipalityLabel);
+                  }}
                   className="gradient-navy text-primary-foreground border-0 hover:opacity-90 transition-opacity font-display font-semibold"
                 >
                   <FileDown className="w-4 h-4 mr-2" />
