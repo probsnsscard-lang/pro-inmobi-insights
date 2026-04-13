@@ -94,15 +94,8 @@ const Index = () => {
     }
   };
 
-  const estimatedTotal = result?.valuation?.finalValue ?? (result
-    ? (() => {
-        const nc = result.newCount ?? result.newProducts.length;
-        const uc = result.usedCount ?? result.usedProducts.length;
-        const total = nc + uc;
-        if (total === 0) return 0;
-        return Math.round((result.newAvgPrice * nc + result.usedAvgPrice * uc) / total);
-      })()
-    : 0);
+  // Valor estimado = valuation.finalValue si existe, de lo contrario $0
+  const estimatedTotal = result?.valuation?.finalValue ?? 0;
 
   const combinedPricePerM2 = result
     ? (() => {
