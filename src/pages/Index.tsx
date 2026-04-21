@@ -39,6 +39,8 @@ const Index = () => {
   const [analystName, setAnalystName] = useState('');
   const [subjectConstructionM2, setSubjectConstructionM2] = useState(0);
   const [subjectTerrainM2, setSubjectTerrainM2] = useState(0);
+  const [m2RangeMin, setM2RangeMin] = useState<number | ''>('');
+  const [m2RangeMax, setM2RangeMax] = useState<number | ''>('');
   const [subjectLocation, setSubjectLocation] = useState('');
   const [subjectType, setSubjectType] = useState<'Casa Habitación' | 'Departamento' | 'Terreno' | 'Comercial'>('Casa Habitación');
   const [subjectRooms, setSubjectRooms] = useState('');
@@ -94,10 +96,27 @@ const Index = () => {
     }
   };
 
-  // Valor estimado = precio_m2 × metros del usuario. Si no hay metros → $0
-  const marketPricePerM2 = result?.valuation?.marketHeartPricePerM2 ?? 0;
-  const userM2 = isTerrain ? subjectTerrainM2 : subjectConstructionM2;
-  const estimatedTotal = userM2 > 0 ? Math.round(marketPricePerM2 * userM2) : 0;
+  // Filtrado por rango de m² sobre propiedades del análisis
+  const allProps = result ? [...result.newProducts, ...result.usedProducts] : [];
+  const minR = typeof m2RangeMin === 'number' ? m2RangeMin : 0;
+  const maxR = typeof m2RangeMax === 'number' ? m2RangeMax : 0;
+  const rangeValid = minR > 0 && maxR > 0 && maxR >= minR;
+  const propsInRange = rangeValid
+    ? allProps.filter(p => {
+        const surface = p.area ?? 0;
+        return surface >= minR && surface <= maxR;
+      })
+    : [];
+  const rangeAvgPricePerM2 = propsInRange.length > 0
+    ? Math.round(propsInRange.reduce((s, p) => s + (p.price / Math.max(p.area || 1, 1)), 0) / propsInRange.length)
+    : 0;
+  const rangeMidpoint = rangeValid ? (minR + maxR) / 2 : 0;
+  const estimatedTotal = rangeAvgPricePerM2 > 0 && rangeMidpoint > 0
+    ? Math.round(rangeAvgPricePerM2 * rangeMidpoint)
+    : 0;
+  // mantener sync con campos legacy para PDF
+  const userM2 = rangeMidpoint;
+  const marketPricePerM2 = rangeAvgPricePerM2 || (result?.valuation?.marketHeartPricePerM2 ?? 0);
 
   const combinedPricePerM2 = result
     ? (() => {
@@ -206,26 +225,36 @@ const Index = () => {
               </select>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-muted-foreground">Metros Cuadrados a Valuar</label>
-              <Input
-                type="number"
-                value={isTerrain ? (subjectTerrainM2 || '') : (subjectConstructionM2 || '')}
-                onChange={(e) => {
-                  const v = Number(e.target.value) || 0;
-                  if (isTerrain) {
-                    setSubjectTerrainM2(v);
-                  } else {
-                    setSubjectConstructionM2(v);
-                  }
-                }}
-                placeholder=""
-                className="text-sm font-bold"
-                min={0}
-              />
-              {userM2 > 0 && marketPricePerM2 > 0 && (
+            <div className="flex flex-col gap-1 col-span-2">
+              <label className="text-xs font-medium text-muted-foreground">
+                Rango de Superficie a Valuar (m²)
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  type="number"
+                  value={m2RangeMin}
+                  onChange={(e) => setM2RangeMin(e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder="Superficie Desde"
+                  className="text-sm font-bold"
+                  min={0}
+                />
+                <Input
+                  type="number"
+                  value={m2RangeMax}
+                  onChange={(e) => setM2RangeMax(e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder="Superficie Hasta"
+                  className="text-sm font-bold"
+                  min={0}
+                />
+              </div>
+              {result && rangeValid && propsInRange.length === 0 && (
+                <p className="text-xs font-display font-semibold text-destructive mt-1">
+                  No hay comparables en este rango de m²
+                </p>
+              )}
+              {result && rangeValid && propsInRange.length > 0 && (
                 <p className="text-xs font-display font-semibold text-secondary mt-1">
-                  Valor estimado en tiempo real: {fmt(estimatedTotal)}
+                  {propsInRange.length} comparables · Promedio {fmt(rangeAvgPricePerM2)}/m² · Punto medio {rangeMidpoint} m² · Valor: <span className="font-extrabold">{fmt(estimatedTotal)}</span>
                 </p>
               )}
             </div>
@@ -303,8 +332,12 @@ const Index = () => {
                 </div>
                 <Button
                   onClick={() => {
-                    if (userM2 <= 0) {
-                      alert(isTerrain ? 'Ingresa los m² de terreno antes de generar el reporte.' : 'Ingresa los m² de construcción antes de generar el reporte.');
+                    if (!rangeValid) {
+                      alert('Ingresa el rango de superficie (Desde / Hasta) antes de generar el reporte.');
+                      return;
+                    }
+                    if (propsInRange.length === 0) {
+                      alert('No hay comparables en el rango seleccionado. Ajusta el rango.');
                       return;
                     }
                     generatePDF(result, estimatedTotal, constructionPct, clientName, analystName, subject, subjectDetails, municipalityLabel);
