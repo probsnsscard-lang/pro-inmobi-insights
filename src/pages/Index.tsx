@@ -39,6 +39,8 @@ const Index = () => {
   const [analystName, setAnalystName] = useState('');
   const [subjectConstructionM2, setSubjectConstructionM2] = useState(0);
   const [subjectTerrainM2, setSubjectTerrainM2] = useState(0);
+  const [m2RangeMin, setM2RangeMin] = useState<number | ''>('');
+  const [m2RangeMax, setM2RangeMax] = useState<number | ''>('');
   const [subjectLocation, setSubjectLocation] = useState('');
   const [subjectType, setSubjectType] = useState<'Casa Habitación' | 'Departamento' | 'Terreno' | 'Comercial'>('Casa Habitación');
   const [subjectRooms, setSubjectRooms] = useState('');
