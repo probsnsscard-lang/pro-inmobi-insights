@@ -96,17 +96,36 @@ const Index = () => {
     }
   };
 
-  // Filtrado por rango de m² sobre propiedades del análisis
+  // Filtrado inclusivo por rango de m² con auto-expansión hasta encontrar ≥3 comparables
   const allProps = result ? [...result.newProducts, ...result.usedProducts] : [];
   const minR = typeof m2RangeMin === 'number' ? m2RangeMin : 0;
   const maxR = typeof m2RangeMax === 'number' ? m2RangeMax : 0;
   const rangeValid = minR > 0 && maxR > 0 && maxR >= minR;
-  const propsInRange = rangeValid
-    ? allProps.filter(p => {
-        const surface = p.area ?? 0;
-        return surface >= minR && surface <= maxR;
-      })
-    : [];
+
+  const filterByRange = (lo: number, hi: number) =>
+    allProps.filter(p => {
+      const s = p.area ?? 0;
+      return s >= lo && s <= hi;
+    });
+
+  let propsInRange: typeof allProps = [];
+  let effectiveMin = minR;
+  let effectiveMax = maxR;
+  let expanded = false;
+  let expansionSteps = 0;
+  if (rangeValid) {
+    propsInRange = filterByRange(minR, maxR);
+    while (propsInRange.length < 3 && expansionSteps < 15) {
+      expansionSteps++;
+      effectiveMin = Math.max(0, effectiveMin * 0.8);
+      effectiveMax = effectiveMax * 1.2;
+      const next = filterByRange(effectiveMin, effectiveMax);
+      if (next.length === propsInRange.length && expansionSteps > 5) break;
+      propsInRange = next;
+      expanded = true;
+    }
+  }
+
   const rangeAvgPricePerM2 = propsInRange.length > 0
     ? Math.round(propsInRange.reduce((s, p) => s + (p.price / Math.max(p.area || 1, 1)), 0) / propsInRange.length)
     : 0;
@@ -249,13 +268,19 @@ const Index = () => {
               </div>
               {result && rangeValid && propsInRange.length === 0 && (
                 <p className="text-xs font-display font-semibold text-destructive mt-1">
-                  No hay comparables en este rango de m²
+                  No hay comparables en este rango de m² (ni ampliando ±20%)
                 </p>
               )}
               {result && rangeValid && propsInRange.length > 0 && (
-                <p className="text-xs font-display font-semibold text-secondary mt-1">
-                  {propsInRange.length} comparables · Promedio {fmt(rangeAvgPricePerM2)}/m² · Punto medio {rangeMidpoint} m² · Valor: <span className="font-extrabold">{fmt(estimatedTotal)}</span>
-                </p>
+                <>
+                  <p className="text-xs font-display font-semibold text-secondary mt-1">
+                    Promedio {fmt(rangeAvgPricePerM2)}/m² · Punto medio {rangeMidpoint} m² · Valor: <span className="font-extrabold">{fmt(estimatedTotal)}</span>
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Se encontraron {propsInRange.length} {isTerrain ? 'terrenos' : 'propiedades'} en este rango
+                    {expanded && ` (rango ampliado a ${Math.round(effectiveMin)}–${Math.round(effectiveMax)} m² para alcanzar ≥3 comparables)`}
+                  </p>
+                </>
               )}
             </div>
 
