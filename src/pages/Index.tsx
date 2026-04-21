@@ -103,7 +103,7 @@ const Index = () => {
   const rangeValid = minR > 0 && maxR > 0 && maxR >= minR;
   const propsInRange = rangeValid
     ? allProps.filter(p => {
-        const surface = isTerrain ? (p.terrainM2 ?? p.area ?? 0) : (p.area ?? 0);
+        const surface = p.area ?? 0;
         return surface >= minR && surface <= maxR;
       })
     : [];
