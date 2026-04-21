@@ -96,10 +96,27 @@ const Index = () => {
     }
   };
 
-  // Valor estimado = precio_m2 × metros del usuario. Si no hay metros → $0
-  const marketPricePerM2 = result?.valuation?.marketHeartPricePerM2 ?? 0;
-  const userM2 = isTerrain ? subjectTerrainM2 : subjectConstructionM2;
-  const estimatedTotal = userM2 > 0 ? Math.round(marketPricePerM2 * userM2) : 0;
+  // Filtrado por rango de m² sobre propiedades del análisis
+  const allProps = result ? [...result.newProducts, ...result.usedProducts] : [];
+  const minR = typeof m2RangeMin === 'number' ? m2RangeMin : 0;
+  const maxR = typeof m2RangeMax === 'number' ? m2RangeMax : 0;
+  const rangeValid = minR > 0 && maxR > 0 && maxR >= minR;
+  const propsInRange = rangeValid
+    ? allProps.filter(p => {
+        const surface = isTerrain ? (p.terrainM2 ?? p.area ?? 0) : (p.area ?? 0);
+        return surface >= minR && surface <= maxR;
+      })
+    : [];
+  const rangeAvgPricePerM2 = propsInRange.length > 0
+    ? Math.round(propsInRange.reduce((s, p) => s + (p.price / Math.max(p.area || 1, 1)), 0) / propsInRange.length)
+    : 0;
+  const rangeMidpoint = rangeValid ? (minR + maxR) / 2 : 0;
+  const estimatedTotal = rangeAvgPricePerM2 > 0 && rangeMidpoint > 0
+    ? Math.round(rangeAvgPricePerM2 * rangeMidpoint)
+    : 0;
+  // mantener sync con campos legacy para PDF
+  const userM2 = rangeMidpoint;
+  const marketPricePerM2 = rangeAvgPricePerM2 || (result?.valuation?.marketHeartPricePerM2 ?? 0);
 
   const combinedPricePerM2 = result
     ? (() => {
