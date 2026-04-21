@@ -332,8 +332,12 @@ const Index = () => {
                 </div>
                 <Button
                   onClick={() => {
-                    if (userM2 <= 0) {
-                      alert(isTerrain ? 'Ingresa los m² de terreno antes de generar el reporte.' : 'Ingresa los m² de construcción antes de generar el reporte.');
+                    if (!rangeValid) {
+                      alert('Ingresa el rango de superficie (Desde / Hasta) antes de generar el reporte.');
+                      return;
+                    }
+                    if (propsInRange.length === 0) {
+                      alert('No hay comparables en el rango seleccionado. Ajusta el rango.');
                       return;
                     }
                     generatePDF(result, estimatedTotal, constructionPct, clientName, analystName, subject, subjectDetails, municipalityLabel);
