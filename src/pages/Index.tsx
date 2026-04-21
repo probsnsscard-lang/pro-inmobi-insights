@@ -206,31 +206,28 @@ const Index = () => {
               </select>
             </div>
 
-            {/* Conditionally show construction m² only for non-terrain */}
-            {!isTerrain && (
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-muted-foreground">m² Construcción</label>
-                <Input
-                  type="number"
-                  value={subjectConstructionM2 || ''}
-                  onChange={(e) => setSubjectConstructionM2(Number(e.target.value) || 0)}
-                  placeholder="Ej: 120"
-                  className="text-sm font-bold"
-                  min={0}
-                />
-              </div>
-            )}
-
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-muted-foreground">m² Terreno</label>
+              <label className="text-xs font-medium text-muted-foreground">Metros Cuadrados a Valuar</label>
               <Input
                 type="number"
-                value={subjectTerrainM2 || ''}
-                onChange={(e) => setSubjectTerrainM2(Number(e.target.value) || 0)}
-                placeholder="Ej: 160"
+                value={isTerrain ? (subjectTerrainM2 || '') : (subjectConstructionM2 || '')}
+                onChange={(e) => {
+                  const v = Number(e.target.value) || 0;
+                  if (isTerrain) {
+                    setSubjectTerrainM2(v);
+                  } else {
+                    setSubjectConstructionM2(v);
+                  }
+                }}
+                placeholder=""
                 className="text-sm font-bold"
                 min={0}
               />
+              {userM2 > 0 && marketPricePerM2 > 0 && (
+                <p className="text-xs font-display font-semibold text-secondary mt-1">
+                  Valor estimado en tiempo real: {fmt(estimatedTotal)}
+                </p>
+              )}
             </div>
 
             {/* Conditionally show rooms/parking only for non-terrain */}
