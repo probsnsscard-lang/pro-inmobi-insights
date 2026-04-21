@@ -266,43 +266,7 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Distribution Slider — hidden for Terreno (always 0/100) */}
-        {!isTerrain && (
-          <div className="bg-card rounded-xl card-shadow p-5 space-y-3">
-            <p className="text-xs font-display font-bold uppercase tracking-wider text-muted-foreground">
-              Distribución de Valor — Construcción / Terreno
-            </p>
-            <div className="flex items-center gap-4">
-              <span className="text-sm font-display font-bold text-primary w-28">
-                🏠 {constructionPct}% Constr.
-              </span>
-              <Slider
-                value={[constructionPct]}
-                onValueChange={(v) => setConstructionPct(v[0])}
-                min={0}
-                max={100}
-                step={5}
-                className="flex-1"
-              />
-              <span className="text-sm font-display font-bold text-secondary w-28 text-right">
-                🌳 {terrainPct}% Terreno
-              </span>
-            </div>
-            <div className="flex gap-2">
-              {SPLIT_PRESETS.map((p) => (
-                <Button
-                  key={p.label}
-                  variant={constructionPct === p.value ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setConstructionPct(p.value)}
-                  className="text-xs font-display font-semibold"
-                >
-                  {p.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Slider de distribución eliminado — el cálculo es directo: superficie × precio_m² */}
 
         <InputPanel
           onAnalyze={handleAnalyze}
